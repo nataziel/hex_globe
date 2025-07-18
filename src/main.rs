@@ -6,6 +6,8 @@ use bevy::render::render_resource::PrimitiveTopology;
 use bevy_panorbit_camera::{PanOrbitCamera, PanOrbitCameraPlugin};
 use hexasphere::shapes::NormIcoSphere;
 use rand::Rng;
+use std::num::NonZero;
+use subsphere::prelude::*;
 
 fn main() {
     App::new()
@@ -21,6 +23,7 @@ fn setup(
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<StandardMaterial>>,
 ) {
+    create_subsphere_mesh(6);
     // circular base
     commands.spawn((
         Mesh3d(meshes.add(Circle::new(4.0))),
@@ -96,3 +99,15 @@ fn create_hexasphere_mesh(subdivisions: u32) -> Mesh {
     mesh
 }
 
+fn create_subsphere_mesh(subdivisions: u32) {
+    let sphere = subsphere::HexSphere::from_kis(
+        subsphere::icosphere()
+            .subdivide_edge(NonZero::new(subdivisions).unwrap())
+            .with_projector(subsphere::proj::Fuller),
+    )
+    .unwrap();
+    let points: Vec<_> = sphere.vertices().map(|vertex| vertex.pos()).collect();
+
+    info!("Hexsphere points {:?}", points);
+    info!("Hexsphere points 0 {:?}", points[0]);
+}
