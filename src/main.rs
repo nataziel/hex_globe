@@ -1,9 +1,9 @@
 //! A simple 3D scene with light shining over a cube sitting on a plane.
 
 use bevy::prelude::*;
-use bevy_panorbit_camera::{PanOrbitCamera, PanOrbitCameraPlugin};
-use bevy::render::render_resource::PrimitiveTopology;
 use bevy::render::render_asset::RenderAssetUsages;
+use bevy::render::render_resource::PrimitiveTopology;
+use bevy_panorbit_camera::{PanOrbitCamera, PanOrbitCameraPlugin};
 use hexasphere::shapes::NormIcoSphere;
 use rand::Rng;
 
@@ -19,7 +19,8 @@ fn main() {
 fn setup(
     mut commands: Commands,
     mut meshes: ResMut<Assets<Mesh>>,
-    mut materials: ResMut<Assets<StandardMaterial>>,) {
+    mut materials: ResMut<Assets<StandardMaterial>>,
+) {
     // circular base
     commands.spawn((
         Mesh3d(meshes.add(Circle::new(4.0))),
@@ -31,7 +32,7 @@ fn setup(
         Mesh3d(meshes.add(create_hexasphere_mesh(5))),
         // Use a default material, as vertex colors will override it
         MeshMaterial3d(materials.add(StandardMaterial::default())),
-        Transform::from_xyz(0.0, 1.0, 0.0),
+        Transform::from_xyz(0.0, 1.5, 0.0),
     ));
     // light
     commands.spawn((
@@ -64,9 +65,9 @@ fn create_hexasphere_mesh(subdivisions: u32) -> Mesh {
         let i2 = indices[i * 3 + 1] as usize;
         let i3 = indices[i * 3 + 2] as usize;
 
-        let p1 = Vec3::new(points[i1].x as f32, points[i1].y as f32, points[i1].z as f32);
-        let p2 = Vec3::new(points[i2].x as f32, points[i2].y as f32, points[i2].z as f32);
-        let p3 = Vec3::new(points[i3].x as f32, points[i3].y as f32, points[i3].z as f32);
+        let p1 = Vec3::new(points[i1].x, points[i1].y, points[i1].z);
+        let p2 = Vec3::new(points[i2].x, points[i2].y, points[i2].z);
+        let p3 = Vec3::new(points[i3].x, points[i3].y, points[i3].z);
 
         positions.push(p1);
         positions.push(p2);
@@ -85,9 +86,13 @@ fn create_hexasphere_mesh(subdivisions: u32) -> Mesh {
         colors.push(color.to_f32_array());
     }
 
-    let mut mesh = Mesh::new(PrimitiveTopology::TriangleList, RenderAssetUsages::default());
+    let mut mesh = Mesh::new(
+        PrimitiveTopology::TriangleList,
+        RenderAssetUsages::default(),
+    );
     mesh.insert_attribute(Mesh::ATTRIBUTE_POSITION, positions);
     mesh.insert_attribute(Mesh::ATTRIBUTE_NORMAL, normals);
     mesh.insert_attribute(Mesh::ATTRIBUTE_COLOR, colors); // Add colors to the mesh
     mesh
 }
+
