@@ -2389,6 +2389,7 @@ dependencies = [
  "bevy",
  "bevy_panorbit_camera",
  "hexasphere 16.0.0",
+ "rand",
 ]
 
 [[package]]

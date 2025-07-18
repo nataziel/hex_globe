@@ -5,6 +5,7 @@ use bevy_panorbit_camera::{PanOrbitCamera, PanOrbitCameraPlugin};
 use bevy::render::render_resource::PrimitiveTopology;
 use bevy::render::render_asset::RenderAssetUsages;
 use hexasphere::shapes::NormIcoSphere;
+use rand::Rng;
 
 fn main() {
     App::new()
@@ -25,17 +26,12 @@ fn setup(
         MeshMaterial3d(materials.add(Color::WHITE)),
         Transform::from_rotation(Quat::from_rotation_x(-std::f32::consts::FRAC_PI_2)),
     ));
-    // bevy sphere
-    commands.spawn((
-        Mesh3d(meshes.add(Sphere::new(1.0))),
-        MeshMaterial3d(materials.add(Color::srgb_u8(124, 144, 255))),
-        Transform::from_xyz(0.0, 1.0, 0.0),
-    ));
-    // hexasphere
+    // hexasphere with random colors
     commands.spawn((
         Mesh3d(meshes.add(create_hexasphere_mesh(5))),
-        MeshMaterial3d(materials.add(Color::srgb_u8(124, 144, 255))),
-        Transform::from_xyz(2.0, 1.0, 0.0),
+        // Use a default material, as vertex colors will override it
+        MeshMaterial3d(materials.add(StandardMaterial::default())),
+        Transform::from_xyz(0.0, 1.0, 0.0),
     ));
     // light
     commands.spawn((
@@ -60,6 +56,8 @@ fn create_hexasphere_mesh(subdivisions: u32) -> Mesh {
 
     let mut positions = Vec::new();
     let mut normals = Vec::new();
+    let mut colors = Vec::new();
+    let mut rng = rand::thread_rng();
 
     for i in 0..indices.len() / 3 {
         let i1 = indices[i * 3] as usize;
@@ -79,10 +77,17 @@ fn create_hexasphere_mesh(subdivisions: u32) -> Mesh {
         normals.push(normal);
         normals.push(normal);
         normals.push(normal);
+
+        // Generate random color for this triangle
+        let color = Srgba::rgb(rng.r#gen(), rng.r#gen(), rng.r#gen());
+        colors.push(color.to_f32_array());
+        colors.push(color.to_f32_array());
+        colors.push(color.to_f32_array());
     }
 
     let mut mesh = Mesh::new(PrimitiveTopology::TriangleList, RenderAssetUsages::default());
     mesh.insert_attribute(Mesh::ATTRIBUTE_POSITION, positions);
     mesh.insert_attribute(Mesh::ATTRIBUTE_NORMAL, normals);
+    mesh.insert_attribute(Mesh::ATTRIBUTE_COLOR, colors); // Add colors to the mesh
     mesh
 }
