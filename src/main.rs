@@ -1,3 +1,4 @@
+#![allow(clippy::pedantic)]
 //! A simple 3D scene with light shining over a cube sitting on a plane.
 
 use bevy::prelude::*;
@@ -7,7 +8,7 @@ use bevy_panorbit_camera::{PanOrbitCamera, PanOrbitCameraPlugin};
 use hexasphere::shapes::NormIcoSphere;
 use rand::Rng;
 use std::num::NonZero;
-use subsphere::prelude::*;
+use subsphere::{Face, prelude::*};
 
 fn main() {
     App::new()
@@ -23,19 +24,18 @@ fn setup(
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<StandardMaterial>>,
 ) {
-    create_subsphere_mesh(6);
-    // circular base
     commands.spawn((
-        Mesh3d(meshes.add(Circle::new(4.0))),
-        MeshMaterial3d(materials.add(Color::WHITE)),
-        Transform::from_rotation(Quat::from_rotation_x(-std::f32::consts::FRAC_PI_2)),
+        Mesh3d(meshes.add(create_subsphere_mesh(9))),
+        // Use a default material, as vertex colors will override it
+        MeshMaterial3d(materials.add(StandardMaterial::default())),
+        Transform::from_xyz(1.0, 0.0, 0.0),
     ));
     // hexasphere with random colors
     commands.spawn((
         Mesh3d(meshes.add(create_hexasphere_mesh(5))),
         // Use a default material, as vertex colors will override it
         MeshMaterial3d(materials.add(StandardMaterial::default())),
-        Transform::from_xyz(0.0, 1.5, 0.0),
+        Transform::from_xyz(-1.0, 0.0, 0.0),
     ));
     // light
     commands.spawn((
@@ -94,20 +94,52 @@ fn create_hexasphere_mesh(subdivisions: u32) -> Mesh {
         RenderAssetUsages::default(),
     );
     mesh.insert_attribute(Mesh::ATTRIBUTE_POSITION, positions);
-    mesh.insert_attribute(Mesh::ATTRIBUTE_NORMAL, normals);
+    // mesh.insert_attribute(Mesh::ATTRIBUTE_NORMAL, normals);
+    mesh.compute_flat_normals();
     mesh.insert_attribute(Mesh::ATTRIBUTE_COLOR, colors); // Add colors to the mesh
     mesh
 }
 
-fn create_subsphere_mesh(subdivisions: u32) {
+fn create_subsphere_mesh(subdivisions: u32) -> Mesh {
     let sphere = subsphere::HexSphere::from_kis(
         subsphere::icosphere()
             .subdivide_edge(NonZero::new(subdivisions).unwrap())
             .with_projector(subsphere::proj::Fuller),
     )
     .unwrap();
-    let points: Vec<_> = sphere.vertices().map(|vertex| vertex.pos()).collect();
 
-    info!("Hexsphere points {:?}", points);
-    info!("Hexsphere points 0 {:?}", points[0]);
+    let positions: Vec<[f32; 3]> = sphere
+        .vertices()
+        .map(|vertex| {
+            let pos = vertex.pos();
+            [pos[0] as f32, pos[1] as f32, pos[2] as f32]
+        })
+        .collect();
+
+    let mut indices: Vec<u32> = Vec::new();
+
+    for face in sphere.faces() {
+        let face_vertices: Vec<_> = face.vertices().collect();
+        let v0_id = face_vertices[0].index() as u32;
+
+        for i in 1..(face_vertices.len() - 1) {
+            let v1_id = face_vertices[i].index() as u32;
+            let v2_id = face_vertices[i + 1].index() as u32;
+
+            indices.push(v0_id);
+            indices.push(v1_id);
+            indices.push(v2_id);
+        }
+    }
+
+    let mut mesh = Mesh::new(
+        PrimitiveTopology::TriangleList,
+        RenderAssetUsages::default(),
+    );
+    mesh.insert_attribute(Mesh::ATTRIBUTE_POSITION, positions);
+    mesh.insert_indices(bevy::render::mesh::Indices::U32(indices));
+
+    mesh.duplicate_vertices();
+    mesh.compute_flat_normals();
+    mesh
 }
