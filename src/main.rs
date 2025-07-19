@@ -59,7 +59,6 @@ fn create_hexasphere_mesh(subdivisions: u32) -> Mesh {
     let indices = sphere.get_all_indices();
 
     let mut positions = Vec::new();
-    let mut normals = Vec::new();
     let mut colors = Vec::new();
     let mut rng = rand::thread_rng();
 
@@ -76,12 +75,6 @@ fn create_hexasphere_mesh(subdivisions: u32) -> Mesh {
         positions.push(p2);
         positions.push(p3);
 
-        // Calculate face normal (for flat shading)
-        let normal = (p2 - p1).cross(p3 - p1).normalize();
-        normals.push(normal);
-        normals.push(normal);
-        normals.push(normal);
-
         // Generate random color for this triangle
         let color = Srgba::rgb(rng.r#gen(), rng.r#gen(), rng.r#gen());
         colors.push(color.to_f32_array());
@@ -94,7 +87,6 @@ fn create_hexasphere_mesh(subdivisions: u32) -> Mesh {
         RenderAssetUsages::default(),
     );
     mesh.insert_attribute(Mesh::ATTRIBUTE_POSITION, positions);
-    // mesh.insert_attribute(Mesh::ATTRIBUTE_NORMAL, normals);
     mesh.compute_flat_normals();
     mesh.insert_attribute(Mesh::ATTRIBUTE_COLOR, colors); // Add colors to the mesh
     mesh
@@ -108,27 +100,28 @@ fn create_subsphere_mesh(subdivisions: u32) -> Mesh {
     )
     .unwrap();
 
-    let positions: Vec<[f32; 3]> = sphere
-        .vertices()
-        .map(|vertex| {
-            let pos = vertex.pos();
-            [pos[0] as f32, pos[1] as f32, pos[2] as f32]
-        })
-        .collect();
-
-    let mut indices: Vec<u32> = Vec::new();
+    let mut positions = Vec::new();
+    let mut colors = Vec::new();
+    let mut rng = rand::thread_rng();
 
     for face in sphere.faces() {
         let face_vertices: Vec<_> = face.vertices().collect();
-        let v0_id = face_vertices[0].index() as u32;
+        let color = Srgba::rgb(rng.r#gen(), rng.r#gen(), rng.r#gen());
+
+        // fan triangulation
+        let v0 = face_vertices[0].pos();
 
         for i in 1..(face_vertices.len() - 1) {
-            let v1_id = face_vertices[i].index() as u32;
-            let v2_id = face_vertices[i + 1].index() as u32;
+            let v1 = face_vertices[i].pos();
+            let v2 = face_vertices[i + 1].pos();
 
-            indices.push(v0_id);
-            indices.push(v1_id);
-            indices.push(v2_id);
+            positions.push([v0[0] as f32, v0[1] as f32, v0[2] as f32]);
+            positions.push([v1[0] as f32, v1[1] as f32, v1[2] as f32]);
+            positions.push([v2[0] as f32, v2[1] as f32, v2[2] as f32]);
+
+            colors.push(color.to_f32_array());
+            colors.push(color.to_f32_array());
+            colors.push(color.to_f32_array());
         }
     }
 
@@ -137,9 +130,8 @@ fn create_subsphere_mesh(subdivisions: u32) -> Mesh {
         RenderAssetUsages::default(),
     );
     mesh.insert_attribute(Mesh::ATTRIBUTE_POSITION, positions);
-    mesh.insert_indices(bevy::render::mesh::Indices::U32(indices));
+    mesh.insert_attribute(Mesh::ATTRIBUTE_COLOR, colors);
 
-    mesh.duplicate_vertices();
     mesh.compute_flat_normals();
     mesh
 }
