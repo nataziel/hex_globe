@@ -53,16 +53,25 @@ fn setup(
     ));
 }
 
+fn generate_face_colors(num_faces: usize) -> Vec<[f32; 4]> {
+    let mut rng = rand::thread_rng();
+    (0..num_faces)
+        .map(|_| Srgba::rgb(rng.r#gen(), rng.r#gen(), rng.r#gen()).to_f32_array())
+        .collect()
+}
+
 fn create_hexasphere_mesh(subdivisions: u32) -> Mesh {
     let sphere = NormIcoSphere::new(subdivisions.try_into().unwrap(), |_| ());
     let points = sphere.raw_points();
     let indices = sphere.get_all_indices();
+    let num_faces = indices.len() / 3;
+
+    let face_colors = generate_face_colors(num_faces);
 
     let mut positions = Vec::new();
     let mut colors = Vec::new();
-    let mut rng = rand::thread_rng();
 
-    for i in 0..indices.len() / 3 {
+    for i in 0..num_faces {
         let i1 = indices[i * 3] as usize;
         let i2 = indices[i * 3 + 1] as usize;
         let i3 = indices[i * 3 + 2] as usize;
@@ -75,11 +84,10 @@ fn create_hexasphere_mesh(subdivisions: u32) -> Mesh {
         positions.push(p2);
         positions.push(p3);
 
-        // Generate random color for this triangle
-        let color = Srgba::rgb(rng.r#gen(), rng.r#gen(), rng.r#gen());
-        colors.push(color.to_f32_array());
-        colors.push(color.to_f32_array());
-        colors.push(color.to_f32_array());
+        let color = face_colors[i];
+        colors.push(color);
+        colors.push(color);
+        colors.push(color);
     }
 
     let mut mesh = Mesh::new(
@@ -100,13 +108,14 @@ fn create_subsphere_mesh(subdivisions: u32) -> Mesh {
     )
     .unwrap();
 
+    let face_colors = generate_face_colors(sphere.num_faces());
+
     let mut positions = Vec::new();
     let mut colors = Vec::new();
-    let mut rng = rand::thread_rng();
 
-    for face in sphere.faces() {
+    for (face_index, face) in sphere.faces().enumerate() {
         let face_vertices: Vec<_> = face.vertices().collect();
-        let color = Srgba::rgb(rng.r#gen(), rng.r#gen(), rng.r#gen());
+        let face_color = face_colors[face_index];
 
         // fan triangulation
         let v0 = face_vertices[0].pos();
@@ -119,9 +128,9 @@ fn create_subsphere_mesh(subdivisions: u32) -> Mesh {
             positions.push([v1[0] as f32, v1[1] as f32, v1[2] as f32]);
             positions.push([v2[0] as f32, v2[1] as f32, v2[2] as f32]);
 
-            colors.push(color.to_f32_array());
-            colors.push(color.to_f32_array());
-            colors.push(color.to_f32_array());
+            colors.push(face_color);
+            colors.push(face_color);
+            colors.push(face_color);
         }
     }
 
