@@ -6,7 +6,9 @@ use bevy::render::render_asset::RenderAssetUsages;
 use bevy::render::render_resource::PrimitiveTopology;
 use bevy_panorbit_camera::{PanOrbitCamera, PanOrbitCameraPlugin};
 
+use rand::seq::SliceRandom;
 use rand::Rng;
+
 use std::num::NonZero;
 use subsphere::{Face, prelude::*};
 
@@ -47,14 +49,50 @@ fn setup(
     ));
 }
 
-fn generate_face_colors(num_faces: usize) -> Vec<[f32; 4]> {
+fn flood_fill_colors(sphere: &subsphere::HexSphere<subsphere::proj::Fuller>, n: usize) -> Vec<[f32; 4]> {
     let mut rng = rand::thread_rng();
-    (0..num_faces)
+    let mut face_colors = vec![[0.0, 0.0, 0.0, 0.0]; sphere.num_faces()];
+    let mut uncolored_faces: Vec<_> = (0..sphere.num_faces()).collect();
+    let mut regions: Vec<Vec<usize>> = Vec::new();
+
+    let colors: Vec<_> = (0..n)
         .map(|_| Srgba::rgb(rng.r#gen(), rng.r#gen(), rng.r#gen()).to_f32_array())
-        .collect()
+        .collect();
+
+    let starting_faces: Vec<_> = uncolored_faces
+        .choose_multiple(&mut rng, n)
+        .cloned()
+        .collect();
+
+    for (i, &face_index) in starting_faces.iter().enumerate() {
+        face_colors[face_index] = colors[i];
+        regions.push(vec![face_index]);
+        uncolored_faces.retain(|&x| x != face_index);
+    }
+
+    while !uncolored_faces.is_empty() {
+        for (i, region) in regions.iter_mut().enumerate() {
+            let mut new_neighbors = Vec::new();
+            for &face_index in region.iter() {
+                let face = sphere.face(face_index);
+                for side in face.sides() {
+                    let neighbor = side.twin().inside();
+                    if uncolored_faces.contains(&neighbor.index()) {
+                        new_neighbors.push(neighbor.index());
+                    }
+                }
+            }
+
+            if let Some(neighbor_to_color) = new_neighbors.choose(&mut rng) {
+                face_colors[*neighbor_to_color] = colors[i];
+                region.push(*neighbor_to_color);
+                uncolored_faces.retain(|&x| x != *neighbor_to_color);
+            }
+        }
+    }
+
+    face_colors
 }
-
-
 
 fn create_subsphere_mesh(subdivisions: u32) -> Mesh {
     let sphere = subsphere::HexSphere::from_kis(
@@ -64,7 +102,7 @@ fn create_subsphere_mesh(subdivisions: u32) -> Mesh {
     )
     .unwrap();
 
-    let face_colors = generate_face_colors(sphere.num_faces());
+    let face_colors = flood_fill_colors(&sphere, 10);
 
     let mut positions = Vec::new();
     let mut colors = Vec::new();
