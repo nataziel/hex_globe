@@ -5,7 +5,7 @@ use bevy::prelude::*;
 use bevy::render::render_asset::RenderAssetUsages;
 use bevy::render::render_resource::PrimitiveTopology;
 use bevy_panorbit_camera::{PanOrbitCamera, PanOrbitCameraPlugin};
-use hexasphere::shapes::NormIcoSphere;
+
 use rand::Rng;
 use std::num::NonZero;
 use subsphere::{Face, prelude::*};
@@ -30,13 +30,7 @@ fn setup(
         MeshMaterial3d(materials.add(StandardMaterial::default())),
         Transform::from_xyz(1.0, 0.0, 0.0),
     ));
-    // hexasphere with random colors
-    commands.spawn((
-        Mesh3d(meshes.add(create_hexasphere_mesh(5))),
-        // Use a default material, as vertex colors will override it
-        MeshMaterial3d(materials.add(StandardMaterial::default())),
-        Transform::from_xyz(-1.0, 0.0, 0.0),
-    ));
+    
     // light
     commands.spawn((
         PointLight {
@@ -60,45 +54,7 @@ fn generate_face_colors(num_faces: usize) -> Vec<[f32; 4]> {
         .collect()
 }
 
-fn create_hexasphere_mesh(subdivisions: u32) -> Mesh {
-    let sphere = NormIcoSphere::new(subdivisions.try_into().unwrap(), |_| ());
-    let points = sphere.raw_points();
-    let indices = sphere.get_all_indices();
-    let num_faces = indices.len() / 3;
 
-    let face_colors = generate_face_colors(num_faces);
-
-    let mut positions = Vec::new();
-    let mut colors = Vec::new();
-
-    for i in 0..num_faces {
-        let i1 = indices[i * 3] as usize;
-        let i2 = indices[i * 3 + 1] as usize;
-        let i3 = indices[i * 3 + 2] as usize;
-
-        let p1 = Vec3::new(points[i1].x, points[i1].y, points[i1].z);
-        let p2 = Vec3::new(points[i2].x, points[i2].y, points[i2].z);
-        let p3 = Vec3::new(points[i3].x, points[i3].y, points[i3].z);
-
-        positions.push(p1);
-        positions.push(p2);
-        positions.push(p3);
-
-        let color = face_colors[i];
-        colors.push(color);
-        colors.push(color);
-        colors.push(color);
-    }
-
-    let mut mesh = Mesh::new(
-        PrimitiveTopology::TriangleList,
-        RenderAssetUsages::default(),
-    );
-    mesh.insert_attribute(Mesh::ATTRIBUTE_POSITION, positions);
-    mesh.compute_flat_normals();
-    mesh.insert_attribute(Mesh::ATTRIBUTE_COLOR, colors); // Add colors to the mesh
-    mesh
-}
 
 fn create_subsphere_mesh(subdivisions: u32) -> Mesh {
     let sphere = subsphere::HexSphere::from_kis(
