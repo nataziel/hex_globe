@@ -6,8 +6,8 @@ use bevy::render::render_asset::RenderAssetUsages;
 use bevy::render::render_resource::PrimitiveTopology;
 use bevy_panorbit_camera::{PanOrbitCamera, PanOrbitCameraPlugin};
 
-use rand::seq::SliceRandom;
 use rand::Rng;
+use rand::seq::SliceRandom;
 
 use std::num::NonZero;
 use subsphere::{Face, prelude::*};
@@ -30,9 +30,9 @@ fn setup(
         Mesh3d(meshes.add(create_subsphere_mesh(9))),
         // Use a default material, as vertex colors will override it
         MeshMaterial3d(materials.add(StandardMaterial::default())),
-        Transform::from_xyz(1.0, 0.0, 0.0),
+        Transform::from_xyz(0.0, 0.0, 0.0),
     ));
-    
+
     // light
     commands.spawn((
         PointLight {
@@ -49,7 +49,10 @@ fn setup(
     ));
 }
 
-fn flood_fill_colors(sphere: &subsphere::HexSphere<subsphere::proj::Fuller>, n: usize) -> Vec<[f32; 4]> {
+fn flood_fill_colors(
+    sphere: &subsphere::HexSphere<subsphere::proj::Fuller>,
+    n: usize,
+) -> Vec<[f32; 4]> {
     let mut rng = rand::thread_rng();
     let mut face_colors = vec![[0.0, 0.0, 0.0, 0.0]; sphere.num_faces()];
     let mut uncolored_faces: Vec<_> = (0..sphere.num_faces()).collect();
@@ -71,7 +74,8 @@ fn flood_fill_colors(sphere: &subsphere::HexSphere<subsphere::proj::Fuller>, n: 
     }
 
     while !uncolored_faces.is_empty() {
-        for (i, region) in regions.iter_mut().enumerate() {
+        let i = rng.gen_range(0..regions.len());
+        if let Some(region) = regions.get_mut(i) {
             let mut new_neighbors = Vec::new();
             for &face_index in region.iter() {
                 let face = sphere.face(face_index);
