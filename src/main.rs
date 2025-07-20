@@ -27,7 +27,7 @@ fn setup(
     mut materials: ResMut<Assets<StandardMaterial>>,
 ) {
     commands.spawn((
-        Mesh3d(meshes.add(create_subsphere_mesh(18))),
+        Mesh3d(meshes.add(create_subsphere_mesh(18, 20))),
         // Use a default material, as vertex colors will override it
         MeshMaterial3d(materials.add(StandardMaterial::default())),
         Transform::from_xyz(0.0, 0.0, 0.0),
@@ -49,94 +49,125 @@ fn setup(
     ));
 }
 
+// This function implements a flood fill algorithm to color a hexagonal sphere.
+// It divides the sphere into `n` distinct regions with random colors.
+// The growth of these regions is controlled to prevent any single region from becoming
+// disproportionately large, ensuring a more balanced and visually appealing result.
 fn flood_fill_colors(
-    sphere: &subsphere::HexSphere<subsphere::proj::Fuller>,
-    n: usize,
+    face_region_indices: Vec<Option<usize>>,
+    rng: &mut rand::prelude::ThreadRng,
+    n_regions: &usize,
 ) -> Vec<[f32; 4]> {
-    const MAX_SIZE_RATIO: f32 = 3.0;
+    let colors = generate_colours(*n_regions, rng);
 
-    let mut rng = rand::thread_rng();
+    // Convert the color indices to the final color values.
+    face_region_indices
+        .into_iter()
+        .map(|c_idx| c_idx.map(|i| colors[i]).unwrap())
+        .collect()
+}
+
+fn flood_fill_regions(
+    sphere: &subsphere::HexSphere<subsphere::proj::Fuller>,
+    rng: &mut rand::prelude::ThreadRng,
+    n_regions: &usize,
+    max_size_ratio: usize,
+) -> Vec<Option<usize>> {
     let num_faces = sphere.num_faces();
 
-    let mut face_color_indices: Vec<Option<usize>> = vec![None; num_faces];
-    let mut region_sizes = vec![0; n];
-    let mut uncolored_count = num_faces;
+    // `face_region_indices` stores the region index for each face.
+    // `region_sizes` tracks the number of faces in each region.
+    let mut face_region_indices: Vec<Option<usize>> = vec![None; num_faces];
+    let mut region_sizes = vec![0; *n_regions];
+    let mut unallocated_count = num_faces;
 
-    let colors: Vec<_> = (0..n)
-        .map(|_| Srgba::rgb(rng.r#gen(), rng.r#gen(), rng.r#gen()).to_f32_array())
-        .collect();
-
+    // The `frontier` holds the indices of allocated faces that are adjacent to unallocated faces.
     let mut frontier: Vec<usize> = Vec::new();
 
+    // Randomly select `n` starting faces to act as seeds for the regions.
     let starting_faces: Vec<_> = (0..num_faces)
         .collect::<Vec<_>>()
-        .choose_multiple(&mut rng, n)
+        .choose_multiple(rng, *n_regions)
         .cloned()
         .collect();
 
+    // Initialize the starting faces with their respective regions.
     for (i, &face_index) in starting_faces.iter().enumerate() {
-        if face_color_indices[face_index].is_none() {
-            face_color_indices[face_index] = Some(i);
+        if face_region_indices[face_index].is_none() {
+            face_region_indices[face_index] = Some(i);
             region_sizes[i] += 1;
             frontier.push(face_index);
-            uncolored_count -= 1;
+            unallocated_count -= 1;
         }
     }
 
-    while uncolored_count > 0 && !frontier.is_empty() {
+    // Main expansion loop: continues as long as there are unallocated faces and a frontier to expand.
+    while unallocated_count > 0 && !frontier.is_empty() {
+        // Determine the size of the smallest active region.
         let min_region_size = region_sizes
             .iter()
             .filter(|&&s| s > 0)
             .min()
             .unwrap_or(&0)
             .to_owned();
-        let max_allowed_size = (min_region_size as f32 * MAX_SIZE_RATIO) as usize;
+        // Calculate the maximum allowed size for any region to maintain the size ratio.
+        let max_allowed_size = min_region_size * max_size_ratio;
 
+        // Identify frontier faces belonging to regions that are not yet at their size limit.
         let mut valid_frontier_indices: Vec<_> = (0..frontier.len())
             .filter(|&i| {
                 let face_idx = frontier[i];
-                let color_idx = face_color_indices[face_idx].unwrap();
-                region_sizes[color_idx] < max_allowed_size
+                let region_idx = face_region_indices[face_idx].unwrap();
+                region_sizes[region_idx] < max_allowed_size
             })
             .collect();
 
+        // If all frontier regions are at their size limit, relax the rule to allow any region to grow.
         if valid_frontier_indices.is_empty() {
             valid_frontier_indices = (0..frontier.len()).collect();
         }
 
-        let frontier_idx_pos = valid_frontier_indices.choose(&mut rng).unwrap().to_owned();
+        // Randomly select a face from the valid frontier to expand.
+        let frontier_idx_pos = valid_frontier_indices.choose(rng).unwrap().to_owned();
         let face_index = frontier[frontier_idx_pos];
-        let color_index = face_color_indices[face_index].unwrap();
+        let region_index = face_region_indices[face_index].unwrap();
 
-        let uncolored_neighbors: Vec<_> = sphere
+        // Find unallocated neighbours of the selected face.
+        let unallocated_neighbours: Vec<_> = sphere
             .face(face_index)
             .sides()
             .map(|s| s.twin().inside().index())
-            .filter(|&neighbor_idx| face_color_indices[neighbor_idx].is_none())
+            .filter(|&neighbour_idx| face_region_indices[neighbour_idx].is_none())
             .collect();
 
-        if uncolored_neighbors.is_empty() {
+        if unallocated_neighbours.is_empty() {
+            // If the face has no unallocated neighbours, it's no longer on the frontier.
             frontier.swap_remove(frontier_idx_pos);
-        } else if let Some(&neighbor_to_color) = uncolored_neighbors.choose(&mut rng) {
-            face_color_indices[neighbor_to_color] = Some(color_index);
-            region_sizes[color_index] += 1;
-            uncolored_count -= 1;
-            frontier.push(neighbor_to_color);
+        } else if let Some(&neighbour_to_allocate) = unallocated_neighbours.choose(rng) {
+            // Color a random unallocated neighbour and add it to the frontier.
+            face_region_indices[neighbour_to_allocate] = Some(region_index);
+            region_sizes[region_index] += 1;
+            unallocated_count -= 1;
+            frontier.push(neighbour_to_allocate);
         }
     }
 
+    // Final cleanup loop: ensures any remaining unallocated faces are filled.
+    // This loop continues until no more changes can be made.
     loop {
         let mut changed = false;
         for i in 0..num_faces {
-            if face_color_indices[i].is_none() {
-                let neighbor_colors: Vec<_> = sphere
+            if face_region_indices[i].is_none() {
+                // Find allocated neighbours of the unallocated face.
+                let neighbour_regions: Vec<_> = sphere
                     .face(i)
                     .sides()
-                    .filter_map(|s| face_color_indices[s.twin().inside().index()])
+                    .filter_map(|s| face_region_indices[s.twin().inside().index()])
                     .collect();
 
-                if let Some(&neighbor_color_index) = neighbor_colors.choose(&mut rng) {
-                    face_color_indices[i] = Some(neighbor_color_index);
+                // Randomly adopt the region of one of its neighbours.
+                if let Some(&neighbour_region_index) = neighbour_regions.choose(rng) {
+                    face_region_indices[i] = Some(neighbour_region_index);
                     changed = true;
                 }
             }
@@ -146,14 +177,18 @@ fn flood_fill_colors(
             break;
         }
     }
-
-    face_color_indices
-        .into_iter()
-        .map(|c_idx| c_idx.map(|i| colors[i]).unwrap_or([0.0, 0.0, 0.0, 1.0]))
-        .collect()
+    face_region_indices
 }
 
-fn create_subsphere_mesh(subdivisions: u32) -> Mesh {
+// Generate `n` distinct random colors for the regions.
+fn generate_colours(n: usize, rng: &mut rand::prelude::ThreadRng) -> Vec<[f32; 4]> {
+    let colors: Vec<_> = (0..n)
+        .map(|_| Srgba::rgb(rng.r#gen(), rng.r#gen(), rng.r#gen()).to_f32_array())
+        .collect();
+    colors
+}
+
+fn create_subsphere_mesh(subdivisions: u32, n_regions: usize) -> Mesh {
     let sphere = subsphere::HexSphere::from_kis(
         subsphere::icosphere()
             .subdivide_edge(NonZero::new(subdivisions).unwrap())
@@ -161,7 +196,10 @@ fn create_subsphere_mesh(subdivisions: u32) -> Mesh {
     )
     .unwrap();
 
-    let face_colors = flood_fill_colors(&sphere, 20);
+    let mut rng = rand::thread_rng();
+
+    let face_region_indices = flood_fill_regions(&sphere, &mut rng, &n_regions, 3);
+    let face_colors = flood_fill_colors(face_region_indices, &mut rng, &n_regions);
 
     let mut positions = Vec::new();
     let mut colors = Vec::new();
