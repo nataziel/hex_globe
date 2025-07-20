@@ -1,5 +1,5 @@
 #![allow(clippy::pedantic)]
-//! A simple 3D scene with light shining over a cube sitting on a plane.
+//! Generate a sphere of hexagons and pentagons, render it nicely
 
 use bevy::prelude::*;
 use bevy::render::render_asset::RenderAssetUsages;
@@ -60,7 +60,6 @@ fn flood_fill_colors(
 ) -> Vec<[f32; 4]> {
     let colors = generate_colours(*n_regions, rng);
 
-    // Convert the color indices to the final color values.
     face_region_indices
         .into_iter()
         .map(|c_idx| c_idx.map(|i| colors[i]).unwrap())
@@ -75,16 +74,16 @@ fn flood_fill_regions(
 ) -> Vec<Option<usize>> {
     let num_faces = sphere.num_faces();
 
-    // `face_region_indices` stores the region index for each face.
+    // `face_region_mapping` stores the region index for each face.
     // `region_sizes` tracks the number of faces in each region.
-    let mut face_region_indices: Vec<Option<usize>> = vec![None; num_faces];
-    let mut region_sizes = vec![0; *n_regions];
+    let mut face_region_mapping: Vec<Option<usize>> = vec![None; num_faces];
+    let mut region_sizes: Vec<usize> = vec![0; *n_regions];
     let mut unallocated_count = num_faces;
 
     // The `frontier` holds the indices of allocated faces that are adjacent to unallocated faces.
     let mut frontier: Vec<usize> = Vec::new();
 
-    // Randomly select `n` starting faces to act as seeds for the regions.
+    // Randomly select `n_regions` starting faces to act as seeds for the regions.
     let starting_faces: Vec<_> = (0..num_faces)
         .collect::<Vec<_>>()
         .choose_multiple(rng, *n_regions)
@@ -92,24 +91,17 @@ fn flood_fill_regions(
         .collect();
 
     // Initialize the starting faces with their respective regions.
-    for (i, &face_index) in starting_faces.iter().enumerate() {
-        if face_region_indices[face_index].is_none() {
-            face_region_indices[face_index] = Some(i);
-            region_sizes[i] += 1;
-            frontier.push(face_index);
-            unallocated_count -= 1;
-        }
+    for (region_idx, &face_idx) in starting_faces.iter().enumerate() {
+        face_region_mapping[face_idx] = Some(region_idx);
+        region_sizes[region_idx] += 1;
+        frontier.push(face_idx);
+        unallocated_count -= 1;
     }
 
     // Main expansion loop: continues as long as there are unallocated faces and a frontier to expand.
     while unallocated_count > 0 && !frontier.is_empty() {
-        // Determine the size of the smallest active region.
-        let min_region_size = region_sizes
-            .iter()
-            .filter(|&&s| s > 0)
-            .min()
-            .unwrap_or(&0)
-            .to_owned();
+        // Determine the size of the smallest active region. At this point it can never be 0.
+        let min_region_size = region_sizes.iter().min().unwrap().to_owned();
         // Calculate the maximum allowed size for any region to maintain the size ratio.
         let max_allowed_size = min_region_size * max_size_ratio;
 
@@ -117,7 +109,8 @@ fn flood_fill_regions(
         let mut valid_frontier_indices: Vec<_> = (0..frontier.len())
             .filter(|&i| {
                 let face_idx = frontier[i];
-                let region_idx = face_region_indices[face_idx].unwrap();
+                let region_idx = face_region_mapping[face_idx].unwrap(); // Should not be None at
+                // this point unless something weird has happened
                 region_sizes[region_idx] < max_allowed_size
             })
             .collect();
@@ -130,25 +123,25 @@ fn flood_fill_regions(
         // Randomly select a face from the valid frontier to expand.
         let frontier_idx_pos = valid_frontier_indices.choose(rng).unwrap().to_owned();
         let face_index = frontier[frontier_idx_pos];
-        let region_index = face_region_indices[face_index].unwrap();
 
         // Find unallocated neighbours of the selected face.
         let unallocated_neighbours: Vec<_> = sphere
             .face(face_index)
             .sides()
             .map(|s| s.twin().inside().index())
-            .filter(|&neighbour_idx| face_region_indices[neighbour_idx].is_none())
+            .filter(|&neighbour_idx| face_region_mapping[neighbour_idx].is_none())
             .collect();
 
         if unallocated_neighbours.is_empty() {
             // If the face has no unallocated neighbours, it's no longer on the frontier.
             frontier.swap_remove(frontier_idx_pos);
         } else if let Some(&neighbour_to_allocate) = unallocated_neighbours.choose(rng) {
-            // Color a random unallocated neighbour and add it to the frontier.
-            face_region_indices[neighbour_to_allocate] = Some(region_index);
+            // Allocate a random unallocated neighbour and add it to the frontier.
+            let region_index = face_region_mapping[face_index].unwrap();
+            face_region_mapping[neighbour_to_allocate] = Some(region_index);
             region_sizes[region_index] += 1;
-            unallocated_count -= 1;
             frontier.push(neighbour_to_allocate);
+            unallocated_count -= 1;
         }
     }
 
@@ -157,17 +150,17 @@ fn flood_fill_regions(
     loop {
         let mut changed = false;
         for i in 0..num_faces {
-            if face_region_indices[i].is_none() {
+            if face_region_mapping[i].is_none() {
                 // Find allocated neighbours of the unallocated face.
                 let neighbour_regions: Vec<_> = sphere
                     .face(i)
                     .sides()
-                    .filter_map(|s| face_region_indices[s.twin().inside().index()])
+                    .filter_map(|s| face_region_mapping[s.twin().inside().index()])
                     .collect();
 
                 // Randomly adopt the region of one of its neighbours.
                 if let Some(&neighbour_region_index) = neighbour_regions.choose(rng) {
-                    face_region_indices[i] = Some(neighbour_region_index);
+                    face_region_mapping[i] = Some(neighbour_region_index);
                     changed = true;
                 }
             }
@@ -177,7 +170,7 @@ fn flood_fill_regions(
             break;
         }
     }
-    face_region_indices
+    face_region_mapping
 }
 
 // Generate `n` distinct random colors for the regions.
