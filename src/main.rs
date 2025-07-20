@@ -54,48 +54,72 @@ fn flood_fill_colors(
     n: usize,
 ) -> Vec<[f32; 4]> {
     let mut rng = rand::thread_rng();
-    let mut face_colors = vec![[0.0, 0.0, 0.0, 0.0]; sphere.num_faces()];
-    let mut uncolored_faces: Vec<_> = (0..sphere.num_faces()).collect();
-    let mut regions: Vec<Vec<usize>> = Vec::new();
+    let num_faces = sphere.num_faces();
 
+    // Using Option allows quick O(1) checks for whether a face is colored.
+    let mut face_colors: Vec<Option<[f32; 4]>> = vec![None; num_faces];
+    let mut uncolored_count = num_faces;
+
+    // Generate n distinct colors.
     let colors: Vec<_> = (0..n)
         .map(|_| Srgba::rgb(rng.r#gen(), rng.r#gen(), rng.r#gen()).to_f32_array())
         .collect();
 
-    let starting_faces: Vec<_> = uncolored_faces
+    // The frontier contains the indices of colored faces that are adjacent to uncolored faces.
+    let mut frontier: Vec<usize> = Vec::new();
+
+    // Choose n random starting faces without replacement.
+    let starting_faces: Vec<_> = (0..num_faces)
+        .collect::<Vec<_>>()
         .choose_multiple(&mut rng, n)
         .cloned()
         .collect();
 
     for (i, &face_index) in starting_faces.iter().enumerate() {
-        face_colors[face_index] = colors[i];
-        regions.push(vec![face_index]);
-        uncolored_faces.retain(|&x| x != face_index);
+        if face_colors[face_index].is_none() {
+            face_colors[face_index] = Some(colors[i]);
+            frontier.push(face_index);
+            uncolored_count -= 1;
+        }
     }
 
-    while !uncolored_faces.is_empty() {
-        let i = rng.gen_range(0..regions.len());
-        if let Some(region) = regions.get_mut(i) {
-            let mut new_neighbors = Vec::new();
-            for &face_index in region.iter() {
-                let face = sphere.face(face_index);
-                for side in face.sides() {
-                    let neighbor = side.twin().inside();
-                    if uncolored_faces.contains(&neighbor.index()) {
-                        new_neighbors.push(neighbor.index());
-                    }
-                }
-            }
+    // Expansion Loop
+    while uncolored_count > 0 && !frontier.is_empty() {
+        // Pick a random face from the frontier to expand from.
+        let frontier_idx_pos = rng.gen_range(0..frontier.len());
+        let face_index = frontier[frontier_idx_pos];
+        let color = face_colors[face_index].unwrap(); // It must have a color to be in the frontier.
 
-            if let Some(neighbor_to_color) = new_neighbors.choose(&mut rng) {
-                face_colors[*neighbor_to_color] = colors[i];
-                region.push(*neighbor_to_color);
-                uncolored_faces.retain(|&x| x != *neighbor_to_color);
+        // Find uncolored neighbors of the chosen frontier face.
+        let uncolored_neighbors: Vec<_> = sphere
+            .face(face_index)
+            .sides()
+            .map(|s| s.twin().inside().index())
+            .filter(|&neighbor_idx| face_colors[neighbor_idx].is_none())
+            .collect();
+
+        if uncolored_neighbors.is_empty() {
+            // This face is no longer on the frontier, remove it.
+            // Fast removal by swapping with the last element.
+            frontier.swap_remove(frontier_idx_pos);
+        } else {
+            // Pick a random neighbor to color.
+            if let Some(&neighbor_to_color) = uncolored_neighbors.choose(&mut rng) {
+                face_colors[neighbor_to_color] = Some(color);
+                uncolored_count -= 1;
+                // The newly colored neighbor is now part of the frontier.
+                frontier.push(neighbor_to_color);
             }
         }
     }
 
+    // Finalization
+    // Convert Vec<Option<[f32; 4]>> to Vec<[f32; 4]>.
+    // Any remaining `None`s (shouldn't happen in a connected graph) get a default color.
     face_colors
+        .into_iter()
+        .map(|c| c.unwrap_or([0.0, 0.0, 0.0, 1.0])) // Default to black
+        .collect()
 }
 
 fn create_subsphere_mesh(subdivisions: u32) -> Mesh {
