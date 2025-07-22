@@ -27,32 +27,36 @@ fn setup(
     mut materials: ResMut<Assets<StandardMaterial>>,
 ) {
     commands.spawn((
-        Mesh3d(meshes.add(create_subsphere_mesh(18, 20))),
+        Mesh3d(meshes.add(create_subsphere_mesh(60, 20))),
         // Use a default material, as vertex colors will override it
         MeshMaterial3d(materials.add(StandardMaterial::default())),
         Transform::from_xyz(0.0, 0.0, 0.0),
     ));
 
     // light
-    commands.spawn((
-        PointLight {
-            shadows_enabled: true,
-            ..default()
-        },
-        Transform::from_xyz(4.0, 8.0, 4.0),
-    ));
+    let light = commands
+        .spawn((
+            PointLight {
+                shadows_enabled: true,
+                ..default()
+            },
+            Transform::default(),
+        ))
+        .id();
+
     // camera
-    commands.spawn((
-        Camera3d::default(),
-        Transform::from_xyz(-2.5, 4.5, 9.0).looking_at(Vec3::ZERO, Vec3::Y),
-        PanOrbitCamera::default(),
-    ));
+    let camera = commands
+        .spawn((
+            Camera3d::default(),
+            Transform::from_xyz(-2.5, 4.5, 9.0).looking_at(Vec3::ZERO, Vec3::Y),
+            PanOrbitCamera::default(),
+        ))
+        .id();
+
+    // light follows camera
+    commands.entity(camera).add_child(light);
 }
 
-// This function implements a flood fill algorithm to color a hexagonal sphere.
-// It divides the sphere into `n` distinct regions with random colors.
-// The growth of these regions is controlled to prevent any single region from becoming
-// disproportionately large, ensuring a more balanced and visually appealing result.
 fn flood_fill_colors(
     face_region_indices: Vec<Option<usize>>,
     rng: &mut rand::prelude::ThreadRng,
@@ -66,6 +70,10 @@ fn flood_fill_colors(
         .collect()
 }
 
+// This function implements a flood fill algorithm to color a hexagonal sphere.
+// It divides the sphere into `n` distinct regions with random colors.
+// The growth of these regions is controlled to prevent any single region from becoming
+// disproportionately large, ensuring a more balanced and visually appealing result.
 fn flood_fill_regions(
     sphere: &subsphere::HexSphere<subsphere::proj::Fuller>,
     rng: &mut rand::prelude::ThreadRng,
