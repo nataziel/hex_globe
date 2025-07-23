@@ -6,10 +6,16 @@ use rand::seq::SliceRandom;
 use std::num::NonZero;
 use subsphere::prelude::*;
 
+#[derive(Component, Clone, Copy)]
+pub struct Region(pub usize);
+
 #[derive(Component)]
 pub struct Face {
     pub neighbors: Vec<Entity>,
 }
+
+#[derive(Component)]
+pub struct ChangeColour;
 
 pub fn create_sphere(
     mut commands: Commands,
@@ -34,8 +40,6 @@ pub fn create_sphere(
 
     // Second pass: populate entities
     for (i, face) in sphere.faces().enumerate() {
-        let color = Color::srgb(rng.r#gen(), rng.r#gen(), rng.r#gen());
-
         let positions = build_fan_triangulation(face);
 
         let mut mesh = Mesh::new(
@@ -53,13 +57,20 @@ pub fn create_sphere(
 
         commands.entity(face_entities[i]).insert((
             Mesh3d(meshes.add(mesh)),
-            MeshMaterial3d(materials.add(StandardMaterial {
-                base_color: color,
-                ..default()
-            })),
+            MeshMaterial3d(materials.add(StandardMaterial { ..default() })),
             Face { neighbors },
             Transform::from_xyz(2.0, 2.0, 0.0),
         ));
+    }
+
+    // Select starting faces for flood fill
+    let n_regions = 10;
+    let starting_faces = face_entities
+        .choose_multiple(&mut rng, n_regions)
+        .cloned()
+        .collect::<Vec<_>>();
+    for (i, entity) in starting_faces.iter().enumerate() {
+        commands.entity(*entity).insert((Region(i), ChangeColour));
     }
 }
 
@@ -80,16 +91,51 @@ fn build_fan_triangulation(face: subsphere::hex::Face<subsphere::proj::Fuller>) 
     positions
 }
 
-pub fn change_face_color(
-    _time: Res<Time>,
-    query: Query<&MeshMaterial3d<StandardMaterial>, With<Face>>,
-    mut materials: ResMut<Assets<StandardMaterial>>,
+pub fn flood_fill(
+    mut commands: Commands,
+    q_faces: Query<(&Face, &Region)>,
+    q_regions: Query<&Region>,
 ) {
-
     let mut rng = rand::thread_rng();
-    if let Some(material_handle) = query.iter().collect::<Vec<_>>().choose(&mut rng) {
-        if let Some(material) = materials.get_mut(*material_handle) {
-            material.base_color = Color::srgb(rng.r#gen(), rng.r#gen(), rng.r#gen());
+    for (face, region) in q_faces.iter() {
+        if let Some(neighbor_entity) = face.neighbors.choose(&mut rng) {
+            if q_regions.get(*neighbor_entity).is_err() {
+                commands
+                    .entity(*neighbor_entity)
+                    .insert((*region, ChangeColour));
+            }
         }
     }
+}
+
+pub fn change_face_color(
+    mut commands: Commands,
+    mut materials: ResMut<Assets<StandardMaterial>>,
+    query: Query<
+        (Entity, &MeshMaterial3d<StandardMaterial>, &Region),
+        (With<Face>, With<ChangeColour>),
+    >,
+) {
+    let colors = color_palette();
+    for (entity_id, material_handle, region) in query.iter() {
+        if let Some(material) = materials.get_mut(material_handle) {
+            material.base_color = colors[region.0];
+        }
+        commands.entity(entity_id).remove::<ChangeColour>();
+    }
+}
+
+fn color_palette() -> Vec<Color> {
+    vec![
+        Color::srgb(0.9, 0.1, 0.1),
+        Color::srgb(0.1, 0.9, 0.1),
+        Color::srgb(0.1, 0.1, 0.9),
+        Color::srgb(0.9, 0.9, 0.1),
+        Color::srgb(0.1, 0.9, 0.9),
+        Color::srgb(0.9, 0.1, 0.9),
+        Color::srgb(0.9, 0.5, 0.1),
+        Color::srgb(0.1, 0.9, 0.5),
+        Color::srgb(0.5, 0.1, 0.9),
+        Color::srgb(0.9, 0.1, 0.5),
+    ]
 }

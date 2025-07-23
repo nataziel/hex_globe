@@ -18,11 +18,13 @@ fn main() {
     App::new()
         .add_plugins(DefaultPlugins)
         .add_plugins(PanOrbitCameraPlugin)
-        .insert_resource(Time::<Fixed>::from_duration(Duration::from_millis(1)))
+        .insert_resource(Time::<Fixed>::from_duration(Duration::from_millis(200)))
         .add_systems(Startup, (setup, sphere::create_sphere))
-        .add_systems(FixedUpdate, sphere::change_face_color)
+        .add_systems(FixedUpdate, sphere::flood_fill)
+        .add_systems(Update, sphere::change_face_color)
         .run();
 }
+
 
 
 /// set up a simple 3D scene
