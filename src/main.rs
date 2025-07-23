@@ -1,6 +1,8 @@
 #![allow(clippy::pedantic)]
 //! Generate a sphere of hexagons and pentagons, render it nicely
 
+mod sphere;
+
 use bevy::prelude::*;
 use bevy::render::render_asset::RenderAssetUsages;
 use bevy::render::render_resource::PrimitiveTopology;
@@ -9,16 +11,19 @@ use bevy_panorbit_camera::{PanOrbitCamera, PanOrbitCameraPlugin};
 use rand::Rng;
 use rand::seq::SliceRandom;
 
-use std::num::NonZero;
+use std::{num::NonZero, time::Duration};
 use subsphere::{Face, prelude::*};
 
 fn main() {
     App::new()
         .add_plugins(DefaultPlugins)
         .add_plugins(PanOrbitCameraPlugin)
-        .add_systems(Startup, setup)
+        .insert_resource(Time::<Fixed>::from_duration(Duration::from_millis(1)))
+        .add_systems(Startup, (setup, sphere::create_sphere))
+        .add_systems(FixedUpdate, sphere::change_face_color)
         .run();
 }
+
 
 /// set up a simple 3D scene
 fn setup(
