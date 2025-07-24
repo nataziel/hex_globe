@@ -1,7 +1,6 @@
 use bevy::prelude::*;
 use bevy::render::render_asset::RenderAssetUsages;
 use bevy::render::render_resource::PrimitiveTopology;
-use rand::Rng;
 use rand::seq::SliceRandom;
 use std::num::NonZero;
 use subsphere::prelude::*;
@@ -11,11 +10,14 @@ pub struct Region(pub usize);
 
 #[derive(Component)]
 pub struct Face {
-    pub neighbors: Vec<Entity>,
+    pub neighbours: Vec<Entity>,
 }
 
 #[derive(Component)]
 pub struct ChangeColour;
+
+#[derive(Component)]
+pub struct Frontier;
 
 pub fn create_sphere(
     mut commands: Commands,
@@ -24,7 +26,7 @@ pub fn create_sphere(
 ) {
     let sphere = subsphere::HexSphere::from_kis(
         subsphere::icosphere()
-            .subdivide_edge(NonZero::new(9).unwrap())
+            .subdivide_edge(NonZero::new(60).unwrap())
             .with_projector(subsphere::proj::Fuller),
     )
     .unwrap();
@@ -34,8 +36,8 @@ pub fn create_sphere(
 
     // First pass: create entities and store them
     for _ in 0..sphere.num_faces() {
-        let entity = commands.spawn_empty().id();
-        face_entities.push(entity);
+        let entity_id = commands.spawn_empty().id();
+        face_entities.push(entity_id);
     }
 
     // Second pass: populate entities
@@ -49,28 +51,30 @@ pub fn create_sphere(
         mesh.insert_attribute(Mesh::ATTRIBUTE_POSITION, positions);
         mesh.compute_flat_normals();
 
-        let mut neighbors = Vec::new();
+        let mut neighbours = Vec::new();
         for side in face.sides() {
-            let neighbor_index = side.twin().inside().index();
-            neighbors.push(face_entities[neighbor_index]);
+            let neighbour_index = side.twin().inside().index();
+            neighbours.push(face_entities[neighbour_index]);
         }
 
         commands.entity(face_entities[i]).insert((
             Mesh3d(meshes.add(mesh)),
             MeshMaterial3d(materials.add(StandardMaterial { ..default() })),
-            Face { neighbors },
+            Face { neighbours },
             Transform::from_xyz(2.0, 2.0, 0.0),
         ));
     }
 
     // Select starting faces for flood fill
-    let n_regions = 10;
+    let n_regions = 20;
     let starting_faces = face_entities
         .choose_multiple(&mut rng, n_regions)
         .cloned()
         .collect::<Vec<_>>();
     for (i, entity) in starting_faces.iter().enumerate() {
-        commands.entity(*entity).insert((Region(i), ChangeColour));
+        commands
+            .entity(*entity)
+            .insert((Region(i), ChangeColour, Frontier));
     }
 }
 
@@ -93,16 +97,31 @@ fn build_fan_triangulation(face: subsphere::hex::Face<subsphere::proj::Fuller>) 
 
 pub fn flood_fill(
     mut commands: Commands,
-    q_faces: Query<(&Face, &Region)>,
+    q_faces: Query<(Entity, &Face, &Region), With<Frontier>>,
     q_regions: Query<&Region>,
 ) {
     let mut rng = rand::thread_rng();
-    for (face, region) in q_faces.iter() {
-        if let Some(neighbor_entity) = face.neighbors.choose(&mut rng) {
-            if q_regions.get(*neighbor_entity).is_err() {
+    // iterate through the faces that are on the frontier
+    for (face_entity_id, face, region) in q_faces.iter() {
+        // choose a random neighbour for that face
+        if let Some(neighbour_entity) = face.neighbours.choose(&mut rng) {
+            // if the chosen neighour has not yet been assigned a region
+            if q_regions.get(*neighbour_entity).is_err() {
+                // assign it to the current face's region and mark it as on the frontier
+                // also mark it to change colour
                 commands
-                    .entity(*neighbor_entity)
-                    .insert((*region, ChangeColour));
+                    .entity(*neighbour_entity)
+                    .insert((*region, ChangeColour, Frontier));
+
+                // if all neighbours have been assigned a region
+                if face
+                    .neighbours
+                    .iter()
+                    .all(|&neighbour_entity_id| q_regions.get(neighbour_entity_id).is_ok())
+                {
+                    // the current face is no longer on the frontier
+                    commands.entity(face_entity_id).remove::<Frontier>();
+                }
             }
         }
     }
@@ -126,6 +145,7 @@ pub fn change_face_color(
 }
 
 fn color_palette() -> Vec<Color> {
+    // todo: made this have a nice palette
     vec![
         Color::srgb(0.9, 0.1, 0.1),
         Color::srgb(0.1, 0.9, 0.1),
@@ -137,5 +157,15 @@ fn color_palette() -> Vec<Color> {
         Color::srgb(0.1, 0.9, 0.5),
         Color::srgb(0.5, 0.1, 0.9),
         Color::srgb(0.9, 0.1, 0.5),
+        Color::srgb(0.8, 0.1, 0.1),
+        Color::srgb(0.1, 0.8, 0.1),
+        Color::srgb(0.1, 0.1, 0.8),
+        Color::srgb(0.8, 0.8, 0.1),
+        Color::srgb(0.1, 0.8, 0.8),
+        Color::srgb(0.8, 0.1, 0.8),
+        Color::srgb(0.8, 0.5, 0.1),
+        Color::srgb(0.1, 0.8, 0.5),
+        Color::srgb(0.5, 0.1, 0.8),
+        Color::srgb(0.8, 0.1, 0.5),
     ]
 }
