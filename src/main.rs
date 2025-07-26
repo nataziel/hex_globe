@@ -14,18 +14,27 @@ use rand::seq::SliceRandom;
 use std::{num::NonZero, time::Duration};
 use subsphere::{Face, prelude::*};
 
+const TICK_RATE: u64 = 100;
+
 fn main() {
     App::new()
         .add_plugins(DefaultPlugins)
         .add_plugins(PanOrbitCameraPlugin)
-        .insert_resource(Time::<Fixed>::from_duration(Duration::from_millis(200)))
+        .insert_resource(Time::<Fixed>::from_duration(Duration::from_millis(TICK_RATE)))
         .add_systems(Startup, (setup, sphere::create_sphere))
-        .add_systems(FixedUpdate, sphere::flood_fill)
+        .insert_state(sphere::WorldGenState::GenPlates)
+        .add_systems(
+            FixedUpdate,
+            ((sphere::flood_fill, sphere::check_if_finished_plates).chain())
+                .run_if(in_state(sphere::WorldGenState::GenPlates)),
+        )
+        .add_systems(
+            FixedUpdate,
+            (sphere::assign_continental_plates).run_if(in_state(sphere::WorldGenState::GenContinents)),
+        )
         .add_systems(Update, sphere::change_face_color)
         .run();
 }
-
-
 
 /// set up a simple 3D scene
 fn setup(
@@ -37,7 +46,7 @@ fn setup(
         Mesh3d(meshes.add(create_subsphere_mesh(60, 20))),
         // Use a default material, as vertex colors will override it
         MeshMaterial3d(materials.add(StandardMaterial::default())),
-        Transform::from_xyz(0.0, 0.0, 0.0),
+        Transform::from_xyz(2.0, 2.0, 0.0),
     ));
 
     // light

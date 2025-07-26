@@ -5,8 +5,17 @@ use rand::seq::SliceRandom;
 use std::num::NonZero;
 use subsphere::prelude::*;
 
+const N_PLATES: usize = 20;
+
+#[derive(States, Clone, Eq, PartialEq, Hash, Debug)]
+pub enum WorldGenState {
+    GenPlates,
+    GenContinents,
+    JustChill,
+}
+
 #[derive(Component, Clone, Copy)]
-pub struct Region(pub usize);
+pub struct Plate(pub usize);
 
 #[derive(Component)]
 pub struct Face {
@@ -14,10 +23,18 @@ pub struct Face {
 }
 
 #[derive(Component)]
-pub struct ChangeColour;
+pub struct ChangeColour {
+    pub colour: Color,
+}
 
 #[derive(Component)]
-pub struct Frontier;
+pub struct PlateFrontier;
+
+#[derive(Component)]
+pub struct Land;
+
+#[derive(Component)]
+pub struct Sea;
 
 pub fn create_sphere(
     mut commands: Commands,
@@ -61,20 +78,24 @@ pub fn create_sphere(
             Mesh3d(meshes.add(mesh)),
             MeshMaterial3d(materials.add(StandardMaterial { ..default() })),
             Face { neighbours },
-            Transform::from_xyz(2.0, 2.0, 0.0),
+            Transform::from_xyz(0.0, 0.0, 0.0),
         ));
     }
 
     // Select starting faces for flood fill
-    let n_regions = 20;
+    let n_regions = N_PLATES;
     let starting_faces = face_entities
         .choose_multiple(&mut rng, n_regions)
         .cloned()
         .collect::<Vec<_>>();
     for (i, entity) in starting_faces.iter().enumerate() {
-        commands
-            .entity(*entity)
-            .insert((Region(i), ChangeColour, Frontier));
+        commands.entity(*entity).insert((
+            Plate(i),
+            ChangeColour {
+                colour: color_palette()[i],
+            },
+            PlateFrontier,
+        ));
     }
 }
 
@@ -97,8 +118,8 @@ fn build_fan_triangulation(face: subsphere::hex::Face<subsphere::proj::Fuller>) 
 
 pub fn flood_fill(
     mut commands: Commands,
-    q_faces: Query<(Entity, &Face, &Region), With<Frontier>>,
-    q_regions: Query<&Region>,
+    q_faces: Query<(Entity, &Face, &Plate), With<PlateFrontier>>,
+    q_regions: Query<&Plate>,
 ) {
     let mut rng = rand::thread_rng();
     // iterate through the faces that are on the frontier
@@ -109,9 +130,13 @@ pub fn flood_fill(
             if q_regions.get(*neighbour_entity).is_err() {
                 // assign it to the current face's region and mark it as on the frontier
                 // also mark it to change colour
-                commands
-                    .entity(*neighbour_entity)
-                    .insert((*region, ChangeColour, Frontier));
+                commands.entity(*neighbour_entity).insert((
+                    *region,
+                    ChangeColour {
+                        colour: color_palette()[region.0],
+                    },
+                    PlateFrontier,
+                ));
 
                 // if all neighbours have been assigned a region
                 if face
@@ -120,7 +145,7 @@ pub fn flood_fill(
                     .all(|&neighbour_entity_id| q_regions.get(neighbour_entity_id).is_ok())
                 {
                     // the current face is no longer on the frontier
-                    commands.entity(face_entity_id).remove::<Frontier>();
+                    commands.entity(face_entity_id).remove::<PlateFrontier>();
                 }
             }
         }
@@ -130,15 +155,11 @@ pub fn flood_fill(
 pub fn change_face_color(
     mut commands: Commands,
     mut materials: ResMut<Assets<StandardMaterial>>,
-    query: Query<
-        (Entity, &MeshMaterial3d<StandardMaterial>, &Region),
-        (With<Face>, With<ChangeColour>),
-    >,
+    query: Query<(Entity, &MeshMaterial3d<StandardMaterial>, &ChangeColour), With<Face>>,
 ) {
-    let colors = color_palette();
-    for (entity_id, material_handle, region) in query.iter() {
+    for (entity_id, material_handle, colour) in query.iter() {
         if let Some(material) = materials.get_mut(material_handle) {
-            material.base_color = colors[region.0];
+            material.base_color = colour.colour
         }
         commands.entity(entity_id).remove::<ChangeColour>();
     }
@@ -168,4 +189,46 @@ fn color_palette() -> Vec<Color> {
         Color::srgb(0.5, 0.1, 0.8),
         Color::srgb(0.8, 0.1, 0.5),
     ]
+}
+
+pub fn check_if_finished_plates(
+    mut state: ResMut<NextState<WorldGenState>>,
+    query_faces: Query<Entity, (With<Face>, Without<Plate>)>,
+) {
+    if query_faces.iter().len() == 0 {
+        state.set(WorldGenState::GenContinents);
+    }
+}
+
+pub fn assign_continental_plates(
+    mut commands: Commands,
+    mut state: ResMut<NextState<WorldGenState>>,
+    query_faces: Query<(Entity, &Plate), With<Face>>,
+) {
+    let mut rng = rand::thread_rng();
+    let ocean_plates = (0..N_PLATES)
+        .collect::<Vec<_>>()
+        .choose_multiple(&mut rng, N_PLATES / 3)
+        .cloned()
+        .collect::<Vec<_>>();
+
+    for (entity_id, plate) in query_faces.iter() {
+        if ocean_plates.contains(&plate.0) {
+            commands.entity(entity_id).insert((
+                Land,
+                ChangeColour {
+                    colour: Color::srgb(0.565, 0.933, 0.565),
+                },
+            ));
+        } else {
+            commands.entity(entity_id).insert((
+                Sea,
+                ChangeColour {
+                    colour: Color::srgb(0.0, 0.412, 0.58),
+                },
+            ));
+        }
+    }
+
+    state.set(WorldGenState::JustChill);
 }
