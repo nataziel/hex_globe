@@ -20,7 +20,9 @@ fn main() {
     App::new()
         .add_plugins(DefaultPlugins)
         .add_plugins(PanOrbitCameraPlugin)
-        .insert_resource(Time::<Fixed>::from_duration(Duration::from_millis(TICK_RATE)))
+        .insert_resource(Time::<Fixed>::from_duration(Duration::from_millis(
+            TICK_RATE,
+        )))
         .add_systems(Startup, (setup, sphere::create_sphere))
         .insert_state(sphere::WorldGenState::GenPlates)
         .add_systems(
@@ -30,10 +32,39 @@ fn main() {
         )
         .add_systems(
             FixedUpdate,
-            (sphere::assign_continental_plates).run_if(in_state(sphere::WorldGenState::GenContinents)),
+            (sphere::assign_continental_plates)
+                .run_if(in_state(sphere::WorldGenState::GenContinents)),
         )
-        .add_systems(Update, sphere::change_face_color)
+        .add_systems(
+            Update,
+            (update_directional_light, sphere::change_face_color),
+        )
         .run();
+}
+
+#[derive(Component)]
+struct OrbitingDirectionalLight;
+
+fn update_directional_light(
+    camera_query: Query<
+        &Transform,
+        (
+            With<Camera3d>,
+            (With<PanOrbitCamera>, Without<OrbitingDirectionalLight>),
+        ),
+    >,
+    mut light_query: Query<&mut Transform, With<OrbitingDirectionalLight>>,
+) {
+    let camera_transform = camera_query.single().unwrap();
+    let mut light_transform = light_query.single_mut().unwrap();
+
+    let focus = Vec3::ZERO;
+    let camera_direction = (focus - camera_transform.translation).normalize();
+
+    // Rotate the light so it shines from the same direction as the camera
+    let light_forward = -Vec3::Z;
+    let rotation = Quat::from_rotation_arc(light_forward, camera_direction);
+    light_transform.rotation = rotation;
 }
 
 /// set up a simple 3D scene
@@ -50,27 +81,19 @@ fn setup(
     ));
 
     // light
-    let light = commands
-        .spawn((
-            PointLight {
-                shadows_enabled: true,
-                ..default()
-            },
-            Transform::default(),
-        ))
-        .id();
+    commands.spawn((
+        DirectionalLight {
+            ..Default::default()
+        },
+        Transform::default(),
+        OrbitingDirectionalLight,
+    ));
 
     // camera
-    let camera = commands
-        .spawn((
-            Camera3d::default(),
-            Transform::from_xyz(-2.5, 4.5, 9.0).looking_at(Vec3::ZERO, Vec3::Y),
-            PanOrbitCamera::default(),
-        ))
-        .id();
-
-    // light follows camera
-    commands.entity(camera).add_child(light);
+    commands.spawn((
+        Transform::from_xyz(-2.5, 4.5, 9.0).looking_at(Vec3::ZERO, Vec3::Y),
+        PanOrbitCamera::default(),
+    ));
 }
 
 fn flood_fill_colors(
