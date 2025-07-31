@@ -45,28 +45,6 @@ fn main() {
 #[derive(Component)]
 struct OrbitingDirectionalLight;
 
-fn update_directional_light(
-    camera_query: Query<
-        &Transform,
-        (
-            With<Camera3d>,
-            (With<PanOrbitCamera>, Without<OrbitingDirectionalLight>),
-        ),
-    >,
-    mut light_query: Query<&mut Transform, With<OrbitingDirectionalLight>>,
-) {
-    let camera_transform = camera_query.single().unwrap();
-    let mut light_transform = light_query.single_mut().unwrap();
-
-    let focus = Vec3::ZERO;
-    let camera_direction = (focus - camera_transform.translation).normalize();
-
-    // Rotate the light so it shines from the same direction as the camera
-    let light_forward = -Vec3::Z;
-    let rotation = Quat::from_rotation_arc(light_forward, camera_direction);
-    light_transform.rotation = rotation;
-}
-
 /// set up a simple 3D scene
 fn setup(
     mut commands: Commands,
@@ -94,6 +72,29 @@ fn setup(
         Transform::from_xyz(-2.5, 4.5, 9.0).looking_at(Vec3::ZERO, Vec3::Y),
         PanOrbitCamera::default(),
     ));
+}
+
+fn update_directional_light(
+    camera_query: Query<
+        &Transform,
+        // need to disambiguate query to keep bevy happy
+        // this is so we don't reference the same value mutably & immutably at the same time
+        (With<PanOrbitCamera>, Without<OrbitingDirectionalLight>),
+    >,
+    mut light_query: Query<&mut Transform, With<OrbitingDirectionalLight>>,
+) {
+    let camera_transform = camera_query.single().unwrap();
+    let mut light_transform = light_query.single_mut().unwrap();
+
+    let focus = Vec3::ZERO; // we always focus on the origin
+    // camera is facing directly towards the focus point (flip the camera transform vector)
+    let camera_direction = (focus - camera_transform.translation).normalize();
+
+    // Rotate the light so it shines from the same direction as the camera
+    let light_forward = -Vec3::Z; // this is the default rotation of a transform in bevy
+    // the rotation of a transform is always calculated in reference to the default
+    let rotation = Quat::from_rotation_arc(light_forward, camera_direction);
+    light_transform.rotation = rotation;
 }
 
 fn flood_fill_colors(
