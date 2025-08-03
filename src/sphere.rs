@@ -5,14 +5,10 @@ use rand::seq::SliceRandom;
 use std::num::NonZero;
 use subsphere::prelude::*;
 
-const N_PLATES: usize = 20;
+use crate::states::WorldGenState;
 
-#[derive(States, Clone, Eq, PartialEq, Hash, Debug)]
-pub enum WorldGenState {
-    GenPlates,
-    GenContinents,
-    JustChill,
-}
+
+const N_PLATES: usize = 40;
 
 #[derive(Component, Clone, Copy)]
 pub struct Plate(pub usize);
@@ -168,6 +164,27 @@ pub fn change_face_color(
 fn color_palette() -> Vec<Color> {
     // todo: made this have a nice palette
     vec![
+        Color::srgb(0.9, 0.1, 0.1),
+        Color::srgb(0.1, 0.9, 0.1),
+        Color::srgb(0.1, 0.1, 0.9),
+        Color::srgb(0.9, 0.9, 0.1),
+        Color::srgb(0.1, 0.9, 0.9),
+        Color::srgb(0.9, 0.1, 0.9),
+        Color::srgb(0.9, 0.5, 0.1),
+        Color::srgb(0.1, 0.9, 0.5),
+        Color::srgb(0.5, 0.1, 0.9),
+        Color::srgb(0.9, 0.1, 0.5),
+        Color::srgb(0.8, 0.1, 0.1),
+        Color::srgb(0.1, 0.8, 0.1),
+        Color::srgb(0.1, 0.1, 0.8),
+        Color::srgb(0.8, 0.8, 0.1),
+        Color::srgb(0.1, 0.8, 0.8),
+        Color::srgb(0.8, 0.1, 0.8),
+        Color::srgb(0.8, 0.5, 0.1),
+        Color::srgb(0.1, 0.8, 0.5),
+        Color::srgb(0.5, 0.1, 0.8),
+        Color::srgb(0.8, 0.1, 0.5),
+        // todo: this is silly having to change it when we change n_plates
         Color::srgb(0.9, 0.1, 0.1),
         Color::srgb(0.1, 0.9, 0.1),
         Color::srgb(0.1, 0.1, 0.9),

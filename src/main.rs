@@ -2,6 +2,7 @@
 //! Generate a sphere of hexagons and pentagons, render it nicely
 
 mod sphere;
+mod states;
 
 use bevy::prelude::*;
 use bevy::render::render_asset::RenderAssetUsages;
@@ -11,8 +12,9 @@ use bevy_panorbit_camera::{PanOrbitCamera, PanOrbitCameraPlugin};
 use rand::Rng;
 use rand::seq::SliceRandom;
 
+use subsphere::prelude::*;
+
 use std::{num::NonZero, time::Duration};
-use subsphere::{Face, prelude::*};
 
 const TICK_RATE: u64 = 100;
 
@@ -24,16 +26,15 @@ fn main() {
             TICK_RATE,
         )))
         .add_systems(Startup, (setup, sphere::create_sphere))
-        .insert_state(sphere::WorldGenState::GenPlates)
+        .insert_state(states::WorldGenState::GenPlates)
         .add_systems(
             FixedUpdate,
             ((sphere::flood_fill, sphere::check_if_finished_plates).chain())
-                .run_if(in_state(sphere::WorldGenState::GenPlates)),
+                .run_if(in_state(states::WorldGenState::GenPlates)),
         )
         .add_systems(
             FixedUpdate,
-            (sphere::assign_continental_plates)
-                .run_if(in_state(sphere::WorldGenState::GenContinents)),
+            (sphere::assign_continental_plates).run_if(in_state(states::WorldGenState::GenContinents)),
         )
         .add_systems(
             Update,
