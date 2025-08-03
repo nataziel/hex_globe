@@ -3,6 +3,7 @@
 
 mod sphere;
 mod states;
+mod ui;
 
 use bevy::prelude::*;
 use bevy::render::render_asset::RenderAssetUsages;
@@ -16,6 +17,8 @@ use subsphere::prelude::*;
 
 use std::{num::NonZero, time::Duration};
 
+use crate::{sphere::SpherePlugin, states::StatePlugin, ui::UiPlugin};
+
 const TICK_RATE: u64 = 100;
 
 fn main() {
@@ -25,20 +28,13 @@ fn main() {
         .insert_resource(Time::<Fixed>::from_duration(Duration::from_millis(
             TICK_RATE,
         )))
-        .add_systems(Startup, (setup, sphere::create_sphere))
-        .insert_state(states::WorldGenState::GenPlates)
-        .add_systems(
-            FixedUpdate,
-            ((sphere::flood_fill, sphere::check_if_finished_plates).chain())
-                .run_if(in_state(states::WorldGenState::GenPlates)),
-        )
-        .add_systems(
-            FixedUpdate,
-            (sphere::assign_continental_plates).run_if(in_state(states::WorldGenState::GenContinents)),
-        )
+        .add_systems(Startup, setup)
+        .add_plugins(StatePlugin)
+        .add_plugins(UiPlugin)
+        .add_plugins(SpherePlugin)
         .add_systems(
             Update,
-            (update_directional_light, sphere::change_face_color),
+            update_directional_light,
         )
         .run();
 }

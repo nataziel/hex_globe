@@ -7,7 +7,6 @@ use subsphere::prelude::*;
 
 use crate::states::WorldGenState;
 
-
 const N_PLATES: usize = 40;
 
 #[derive(Component, Clone, Copy)]
@@ -32,7 +31,7 @@ pub struct Land;
 #[derive(Component)]
 pub struct Sea;
 
-pub fn create_sphere(
+fn create_sphere(
     mut commands: Commands,
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<StandardMaterial>>,
@@ -112,7 +111,7 @@ fn build_fan_triangulation(face: subsphere::hex::Face<subsphere::proj::Fuller>) 
     positions
 }
 
-pub fn flood_fill(
+fn flood_fill(
     mut commands: Commands,
     q_faces: Query<(Entity, &Face, &Plate), With<PlateFrontier>>,
     q_regions: Query<&Plate>,
@@ -148,7 +147,7 @@ pub fn flood_fill(
     }
 }
 
-pub fn change_face_color(
+fn change_face_color(
     mut commands: Commands,
     mut materials: ResMut<Assets<StandardMaterial>>,
     query: Query<(Entity, &MeshMaterial3d<StandardMaterial>, &ChangeColour), With<Face>>,
@@ -208,7 +207,7 @@ fn color_palette() -> Vec<Color> {
     ]
 }
 
-pub fn check_if_finished_plates(
+fn check_if_finished_plates(
     mut state: ResMut<NextState<WorldGenState>>,
     query_faces: Query<Entity, (With<Face>, Without<Plate>)>,
 ) {
@@ -217,7 +216,7 @@ pub fn check_if_finished_plates(
     }
 }
 
-pub fn assign_continental_plates(
+fn assign_continental_plates(
     mut commands: Commands,
     mut state: ResMut<NextState<WorldGenState>>,
     query_faces: Query<(Entity, &Plate), With<Face>>,
@@ -248,4 +247,21 @@ pub fn assign_continental_plates(
     }
 
     state.set(WorldGenState::JustChill);
+}
+pub struct SpherePlugin;
+
+impl Plugin for SpherePlugin {
+    fn build(&self, app: &mut App) {
+        app.add_systems(Startup, create_sphere)
+            .add_systems(
+                FixedUpdate,
+                ((flood_fill, check_if_finished_plates).chain())
+                    .run_if(in_state(WorldGenState::GenPlates)),
+            )
+            .add_systems(
+                FixedUpdate,
+                (assign_continental_plates).run_if(in_state(WorldGenState::GenContinents)),
+            )
+            .add_systems(Update, change_face_color);
+    }
 }
