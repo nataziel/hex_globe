@@ -17,6 +17,11 @@ struct PlatePalette(Vec<Color>);
 
 #[derive(Component)]
 pub struct Face {
+    pub centre_pos: Vec3,
+}
+
+#[derive(Component)]
+pub struct FaceNeighbours {
     pub neighbours: Vec<Entity>,
 }
 
@@ -57,6 +62,8 @@ fn create_sphere(
 
     // Second pass: populate entities
     for (i, face) in sphere.faces().enumerate() {
+        let centre_pos = get_centre_vec(face);
+
         let positions = build_fan_triangulation(face);
 
         let mut mesh = Mesh::new(
@@ -71,11 +78,14 @@ fn create_sphere(
             let neighbour_index = side.twin().inside().index();
             neighbours.push(face_entities[neighbour_index]);
         }
-
         commands.entity(face_entities[i]).insert((
             Mesh3d(meshes.add(mesh)),
-            MeshMaterial3d(materials.add(StandardMaterial { ..default() })),
-            Face { neighbours },
+            MeshMaterial3d(materials.add(StandardMaterial {
+                base_color: Color::srgb(1.0, 1.0, 1.0),
+                ..default()
+            })),
+            Face { centre_pos },
+            FaceNeighbours { neighbours },
             Transform::from_xyz(0.0, 0.0, 0.0),
         ));
     }
@@ -98,6 +108,15 @@ fn create_sphere(
             PlateFrontier,
         ));
     }
+}
+
+fn get_centre_vec(face: subsphere::hex::Face<subsphere::proj::Fuller>) -> Vec3 {
+    let centre_position_array = face.center().pos();
+    Vec3::new(
+        centre_position_array[0] as f32,
+        centre_position_array[1] as f32,
+        centre_position_array[2] as f32,
+    )
 }
 
 fn build_fan_triangulation(face: subsphere::hex::Face<subsphere::proj::Fuller>) -> Vec<[f32; 3]> {
@@ -157,7 +176,7 @@ fn flood_fill(
 fn change_face_color(
     mut commands: Commands,
     mut materials: ResMut<Assets<StandardMaterial>>,
-    query: Query<(Entity, &MeshMaterial3d<StandardMaterial>, &ChangeColour), With<Face>>,
+    query: Query<(Entity, &MeshMaterial3d<StandardMaterial>, &ChangeColour), With<FaceNeighbours>>,
 ) {
     for (entity_id, material_handle, colour) in query.iter() {
         if let Some(material) = materials.get_mut(material_handle) {
@@ -175,7 +194,7 @@ fn gen_colour_palette(n: usize, rng: &mut ThreadRng) -> Vec<Color> {
 
 fn check_if_finished_plates(
     mut state: ResMut<NextState<WorldGenState>>,
-    query_faces: Query<Entity, (With<Face>, Without<Plate>)>,
+    query_faces: Query<Entity, (With<FaceNeighbours>, Without<Plate>)>,
 ) {
     if query_faces.iter().len() == 0 {
         state.set(WorldGenState::GenContinents);
@@ -185,7 +204,7 @@ fn check_if_finished_plates(
 fn assign_continental_plates(
     mut commands: Commands,
     mut state: ResMut<NextState<WorldGenState>>,
-    query_faces: Query<(Entity, &Plate), With<Face>>,
+    query_faces: Query<(Entity, &Plate), With<FaceNeighbours>>,
 ) {
     let mut rng = rand::thread_rng();
     let ocean_plates = (0..N_PLATES)

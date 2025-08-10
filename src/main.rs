@@ -32,10 +32,7 @@ fn main() {
         .add_plugins(StatePlugin)
         .add_plugins(UiPlugin)
         .add_plugins(SpherePlugin)
-        .add_systems(
-            Update,
-            update_directional_light,
-        )
+        .add_systems(Update, update_directional_light)
         .run();
 }
 
