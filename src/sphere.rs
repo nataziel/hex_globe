@@ -188,7 +188,13 @@ fn change_face_color(
 
 fn gen_colour_palette(n: usize, rng: &mut ThreadRng) -> Vec<Color> {
     (0..n)
-        .map(|_| Color::srgb(rng.r#gen::<f32>(), rng.r#gen::<f32>(), rng.r#gen::<f32>()))
+        .map(|_| {
+            Color::srgb(
+                rng.gen_range(0.0..1.0),
+                rng.gen_range(0.0..1.0),
+                rng.gen_range(0.0..1.0),
+            )
+        })
         .collect()
 }
 
