@@ -1,7 +1,7 @@
 use bevy::prelude::*;
 use bevy::render::render_asset::RenderAssetUsages;
 use bevy::render::render_resource::PrimitiveTopology;
-use rand::seq::SliceRandom;
+use rand::{Rng, rngs::ThreadRng, seq::SliceRandom};
 use std::num::NonZero;
 use subsphere::prelude::*;
 
@@ -11,6 +11,9 @@ const N_PLATES: usize = 40;
 
 #[derive(Component, Clone, Copy)]
 pub struct Plate(pub usize);
+
+#[derive(Resource)]
+struct PlatePalette(Vec<Color>);
 
 #[derive(Component)]
 pub struct Face {
@@ -77,17 +80,20 @@ fn create_sphere(
         ));
     }
 
+    // Create plates colour palette
+    let color_palette = gen_colour_palette(N_PLATES, &mut rng);
+    commands.insert_resource(PlatePalette(color_palette.clone()));
+
     // Select starting faces for flood fill
-    let n_regions = N_PLATES;
     let starting_faces = face_entities
-        .choose_multiple(&mut rng, n_regions)
+        .choose_multiple(&mut rng, N_PLATES)
         .cloned()
         .collect::<Vec<_>>();
     for (i, entity) in starting_faces.iter().enumerate() {
         commands.entity(*entity).insert((
             Plate(i),
             ChangeColour {
-                colour: color_palette()[i],
+                colour: color_palette[i],
             },
             PlateFrontier,
         ));
@@ -113,7 +119,8 @@ fn build_fan_triangulation(face: subsphere::hex::Face<subsphere::proj::Fuller>) 
 
 fn flood_fill(
     mut commands: Commands,
-    q_faces: Query<(Entity, &Face, &Plate), With<PlateFrontier>>,
+    palette: Res<PlatePalette>,
+    q_faces: Query<(Entity, &FaceNeighbours, &Plate), With<PlateFrontier>>,
     q_regions: Query<&Plate>,
 ) {
     let mut rng = rand::thread_rng();
@@ -128,7 +135,7 @@ fn flood_fill(
                 commands.entity(*neighbour_entity).insert((
                     *region,
                     ChangeColour {
-                        colour: color_palette()[region.0],
+                        colour: palette.0[region.0],
                     },
                     PlateFrontier,
                 ));
@@ -160,51 +167,10 @@ fn change_face_color(
     }
 }
 
-fn color_palette() -> Vec<Color> {
-    // todo: made this have a nice palette
-    vec![
-        Color::srgb(0.9, 0.1, 0.1),
-        Color::srgb(0.1, 0.9, 0.1),
-        Color::srgb(0.1, 0.1, 0.9),
-        Color::srgb(0.9, 0.9, 0.1),
-        Color::srgb(0.1, 0.9, 0.9),
-        Color::srgb(0.9, 0.1, 0.9),
-        Color::srgb(0.9, 0.5, 0.1),
-        Color::srgb(0.1, 0.9, 0.5),
-        Color::srgb(0.5, 0.1, 0.9),
-        Color::srgb(0.9, 0.1, 0.5),
-        Color::srgb(0.8, 0.1, 0.1),
-        Color::srgb(0.1, 0.8, 0.1),
-        Color::srgb(0.1, 0.1, 0.8),
-        Color::srgb(0.8, 0.8, 0.1),
-        Color::srgb(0.1, 0.8, 0.8),
-        Color::srgb(0.8, 0.1, 0.8),
-        Color::srgb(0.8, 0.5, 0.1),
-        Color::srgb(0.1, 0.8, 0.5),
-        Color::srgb(0.5, 0.1, 0.8),
-        Color::srgb(0.8, 0.1, 0.5),
-        // todo: this is silly having to change it when we change n_plates
-        Color::srgb(0.9, 0.1, 0.1),
-        Color::srgb(0.1, 0.9, 0.1),
-        Color::srgb(0.1, 0.1, 0.9),
-        Color::srgb(0.9, 0.9, 0.1),
-        Color::srgb(0.1, 0.9, 0.9),
-        Color::srgb(0.9, 0.1, 0.9),
-        Color::srgb(0.9, 0.5, 0.1),
-        Color::srgb(0.1, 0.9, 0.5),
-        Color::srgb(0.5, 0.1, 0.9),
-        Color::srgb(0.9, 0.1, 0.5),
-        Color::srgb(0.8, 0.1, 0.1),
-        Color::srgb(0.1, 0.8, 0.1),
-        Color::srgb(0.1, 0.1, 0.8),
-        Color::srgb(0.8, 0.8, 0.1),
-        Color::srgb(0.1, 0.8, 0.8),
-        Color::srgb(0.8, 0.1, 0.8),
-        Color::srgb(0.8, 0.5, 0.1),
-        Color::srgb(0.1, 0.8, 0.5),
-        Color::srgb(0.5, 0.1, 0.8),
-        Color::srgb(0.8, 0.1, 0.5),
-    ]
+fn gen_colour_palette(n: usize, rng: &mut ThreadRng) -> Vec<Color> {
+    (0..n)
+        .map(|_| Color::srgb(rng.r#gen::<f32>(), rng.r#gen::<f32>(), rng.r#gen::<f32>()))
+        .collect()
 }
 
 fn check_if_finished_plates(
