@@ -17,7 +17,6 @@ fn setup_gen_plates_ui(mut commands: Commands) {
     commands.spawn((
         // Accepts a `String` or any type that converts into a `String`, such as `&str`
         Text::new("For gen_plates"),
-        TextShadow::default(),
         // Set the justification of the Text
         TextLayout::new_with_justify(JustifyText::Center),
         // Set the style of the Node itself.
@@ -41,7 +40,6 @@ fn setup_gen_continents_ui(mut commands: Commands) {
     commands.spawn((
         // Accepts a `String` or any type that converts into a `String`, such as `&str`
         Text::new("For gen_continents"),
-        TextShadow::default(),
         // Set the justification of the Text
         TextLayout::new_with_justify(JustifyText::Center),
         // Set the style of the Node itself.
@@ -65,7 +63,6 @@ fn setup_just_chill_ui(mut commands: Commands) {
     commands.spawn((
         // Accepts a `String` or any type that converts into a `String`, such as `&str`
         Text::new("For just_chill"),
-        TextShadow::default(),
         // Set the justification of the Text
         TextLayout::new_with_justify(JustifyText::Center),
         // Set the style of the Node itself.
