@@ -97,7 +97,7 @@ fn create_sphere(
     // Select starting faces for flood fill
     let starting_faces = face_entities
         .choose_multiple(&mut rng, N_PLATES)
-        .cloned()
+        .copied()
         .collect::<Vec<_>>();
     for (i, entity) in starting_faces.iter().enumerate() {
         commands.entity(*entity).insert((
@@ -180,7 +180,7 @@ fn change_face_color(
 ) {
     for (entity_id, material_handle, colour) in query.iter() {
         if let Some(material) = materials.get_mut(material_handle) {
-            material.base_color = colour.colour
+            material.base_color = colour.colour;
         }
         commands.entity(entity_id).remove::<ChangeColour>();
     }
@@ -216,7 +216,7 @@ fn assign_continental_plates(
     let ocean_plates = (0..N_PLATES)
         .collect::<Vec<_>>()
         .choose_multiple(&mut rng, N_PLATES / 3)
-        .cloned()
+        .copied()
         .collect::<Vec<_>>();
 
     for (entity_id, plate) in query_faces.iter() {

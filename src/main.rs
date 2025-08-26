@@ -1,4 +1,5 @@
-#![allow(clippy::pedantic)]
+#![warn(clippy::pedantic)]
+#![allow(clippy::cast_possible_truncation)]
 //! Generate a sphere of hexagons and pentagons, render it nicely
 
 mod sphere;
@@ -94,9 +95,9 @@ fn update_directional_light(
 fn flood_fill_colors(
     face_region_indices: Vec<Option<usize>>,
     rng: &mut rand::prelude::ThreadRng,
-    n_regions: &usize,
+    n_regions: usize,
 ) -> Vec<[f32; 4]> {
-    let colors = generate_colours(*n_regions, rng);
+    let colors = generate_colours(n_regions, rng);
 
     face_region_indices
         .into_iter()
@@ -109,9 +110,9 @@ fn flood_fill_colors(
 // The growth of these regions is controlled to prevent any single region from becoming
 // disproportionately large, ensuring a more balanced and visually appealing result.
 fn flood_fill_regions(
-    sphere: &subsphere::HexSphere<subsphere::proj::Fuller>,
+    sphere: subsphere::HexSphere<subsphere::proj::Fuller>,
     rng: &mut rand::prelude::ThreadRng,
-    n_regions: &usize,
+    n_regions: usize,
     max_size_ratio: usize,
 ) -> Vec<Option<usize>> {
     let num_faces = sphere.num_faces();
@@ -119,7 +120,7 @@ fn flood_fill_regions(
     // `face_region_mapping` stores the region index for each face.
     // `region_sizes` tracks the number of faces in each region.
     let mut face_region_mapping: Vec<Option<usize>> = vec![None; num_faces];
-    let mut region_sizes: Vec<usize> = vec![0; *n_regions];
+    let mut region_sizes: Vec<usize> = vec![0; n_regions];
     let mut unallocated_count = num_faces;
 
     // The `frontier` holds the indices of allocated faces that are adjacent to unallocated faces.
@@ -128,8 +129,8 @@ fn flood_fill_regions(
     // Randomly select `n_regions` starting faces to act as seeds for the regions.
     let starting_faces: Vec<_> = (0..num_faces)
         .collect::<Vec<_>>()
-        .choose_multiple(rng, *n_regions)
-        .cloned()
+        .choose_multiple(rng, n_regions)
+        .copied()
         .collect();
 
     // Initialize the starting faces with their respective regions.
@@ -233,8 +234,8 @@ fn create_subsphere_mesh(subdivisions: u32, n_regions: usize) -> Mesh {
 
     let mut rng = rand::thread_rng();
 
-    let face_region_indices = flood_fill_regions(&sphere, &mut rng, &n_regions, 3);
-    let face_colors = flood_fill_colors(face_region_indices, &mut rng, &n_regions);
+    let face_region_indices = flood_fill_regions(sphere, &mut rng, n_regions, 3);
+    let face_colors = flood_fill_colors(face_region_indices, &mut rng, n_regions);
 
     let mut positions = Vec::new();
     let mut colors = Vec::new();
