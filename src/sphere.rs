@@ -1,7 +1,7 @@
 use bevy::prelude::*;
 use bevy::render::render_asset::RenderAssetUsages;
 use bevy::render::render_resource::PrimitiveTopology;
-use rand::{Rng, rngs::ThreadRng, seq::SliceRandom};
+use rand::{Rng, rngs::ThreadRng, seq::IndexedRandom};
 use std::num::NonZero;
 use subsphere::prelude::*;
 
@@ -51,7 +51,7 @@ fn create_sphere(
     )
     .unwrap();
 
-    let mut rng = rand::thread_rng();
+    let mut rng = rand::rng();
     let mut face_entities = Vec::new();
 
     // First pass: create entities and store them
@@ -142,7 +142,7 @@ fn flood_fill(
     q_faces: Query<(Entity, &FaceNeighbours, &Plate), With<PlateFrontier>>,
     q_regions: Query<&Plate>,
 ) {
-    let mut rng = rand::thread_rng();
+    let mut rng = rand::rng();
     // iterate through the faces that are on the frontier
     for (face_entity_id, face, region) in q_faces.iter() {
         // choose a random neighbour for that face
@@ -190,9 +190,9 @@ fn gen_colour_palette(n: usize, rng: &mut ThreadRng) -> Vec<Color> {
     (0..n)
         .map(|_| {
             Color::srgb(
-                rng.gen_range(0.0..1.0),
-                rng.gen_range(0.0..1.0),
-                rng.gen_range(0.0..1.0),
+                rng.random_range(0.0..1.0),
+                rng.random_range(0.0..1.0),
+                rng.random_range(0.0..1.0),
             )
         })
         .collect()
@@ -212,7 +212,8 @@ fn assign_continental_plates(
     mut state: ResMut<NextState<WorldGenState>>,
     query_faces: Query<(Entity, &Plate), With<FaceNeighbours>>,
 ) {
-    let mut rng = rand::thread_rng();
+    let mut rng = rand::rng();
+
     let ocean_plates = (0..N_PLATES)
         .collect::<Vec<_>>()
         .choose_multiple(&mut rng, N_PLATES / 3)

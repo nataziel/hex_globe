@@ -12,7 +12,7 @@ use bevy::render::render_resource::PrimitiveTopology;
 use bevy_panorbit_camera::{PanOrbitCamera, PanOrbitCameraPlugin};
 
 use rand::Rng;
-use rand::seq::SliceRandom;
+use rand::seq::IndexedRandom;
 
 use subsphere::prelude::*;
 
@@ -35,6 +35,7 @@ fn main() {
         .add_plugins(SpherePlugin)
         .add_systems(Update, update_directional_light)
         .run();
+
 }
 
 #[derive(Component)]
@@ -219,7 +220,7 @@ fn flood_fill_regions(
 // Generate `n` distinct random colors for the regions.
 fn generate_colours(n: usize, rng: &mut rand::prelude::ThreadRng) -> Vec<[f32; 4]> {
     let colors: Vec<_> = (0..n)
-        .map(|_| Srgba::rgb(rng.r#gen(), rng.r#gen(), rng.r#gen()).to_f32_array())
+        .map(|_| Srgba::rgb(rng.random(), rng.random(), rng.random()).to_f32_array())
         .collect();
     colors
 }
@@ -232,7 +233,7 @@ fn create_subsphere_mesh(subdivisions: u32, n_regions: usize) -> Mesh {
     )
     .unwrap();
 
-    let mut rng = rand::thread_rng();
+    let mut rng = rand::rng();
 
     let face_region_indices = flood_fill_regions(sphere, &mut rng, n_regions, 3);
     let face_colors = flood_fill_colors(face_region_indices, &mut rng, n_regions);
