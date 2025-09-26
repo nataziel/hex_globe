@@ -117,6 +117,29 @@ fn cleanup_finished_continents_ui(
     commands.entity(entity_id).despawn();
 }
 
+fn setup_gen_velocities_ui(mut commands: Commands) {
+    commands.spawn((
+        // Accepts a `String` or any type that converts into a `String`, such as `&str`
+        Text::new("For gen velocities"),
+        // Set the justification of the Text
+        TextLayout::new_with_justify(JustifyText::Center),
+        // Set the style of the Node itself.
+        Node {
+            position_type: PositionType::Absolute,
+            bottom: Val::Px(5.0),
+            right: Val::Px(5.0),
+            ..default()
+        },
+        JustChillUiText,
+    ));
+}
+
+fn cleanup_gen_velocities_ui(mut commands: Commands, q: Query<Entity, With<JustChillUiText>>) {
+    let entity_id = q.single().unwrap();
+
+    commands.entity(entity_id).despawn();
+}
+
 fn setup_just_chill_ui(mut commands: Commands) {
     commands.spawn((
         // Accepts a `String` or any type that converts into a `String`, such as `&str`
@@ -169,6 +192,14 @@ impl Plugin for UiPlugin {
             .add_systems(
                 OnExit(WorldGenState::FinishedContinents),
                 cleanup_finished_continents_ui,
+            )
+            .add_systems(
+                OnEnter(WorldGenState::GenPlateVelocities),
+                setup_gen_velocities_ui,
+            )
+            .add_systems(
+                OnExit(WorldGenState::GenPlateVelocities),
+                cleanup_gen_velocities_ui,
             )
             .add_systems(OnEnter(WorldGenState::JustChill), setup_just_chill_ui)
             .add_systems(OnExit(WorldGenState::JustChill), cleanup_just_chill_ui);

@@ -6,6 +6,8 @@ pub enum WorldGenState {
     FinishedPlates,
     GenContinents,
     FinishedContinents,
+    GenPlateVelocities,
+    FinishedPlateVelocities,
     JustChill,
 }
 

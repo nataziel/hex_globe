@@ -9,7 +9,7 @@ use crate::states::WorldGenState;
 
 const N_PLATES: usize = 40;
 
-#[derive(Component, Clone, Copy)]
+#[derive(Component, Clone, Copy, PartialEq)]
 pub struct Plate(pub usize);
 
 #[derive(Resource)]
@@ -39,6 +39,11 @@ pub struct Land;
 
 #[derive(Component)]
 pub struct Sea;
+
+#[derive(Component)]
+pub struct FacePlateVelocity {
+    pub velocity: Vec3,
+}
 
 fn create_sphere(
     mut commands: Commands,
@@ -260,6 +265,53 @@ fn handle_finished_continents(
     }
 }
 
+fn do_plate_velocities(
+    mut commands: Commands,
+    query_faces: Query<(Entity, &Face, &Plate)>,
+    mut state: ResMut<NextState<WorldGenState>>,
+) {
+    let plate_rotation_vectors: Vec<Vec3> = (0..N_PLATES)
+        .collect::<Vec<_>>()
+        .iter()
+        .map(|_| random_rotation_vector())
+        .collect();
+
+    for (entity_id, face, plate) in query_faces.iter() {
+        let face_velocity = plate_rotation_vectors[plate.0].cross(face.centre_pos);
+        commands.entity(entity_id).insert(FacePlateVelocity {
+            velocity: face_velocity,
+        });
+    }
+
+    state.set(WorldGenState::JustChill);
+}
+
+/// Generates a random angular velocity vector with length <= 1
+fn random_rotation_vector() -> Vec3 {
+    let mut rng = rand::rng();
+
+    // Random unit direction
+    let dir = random_unit_vector(&mut rng);
+
+    // Random speed in [0.0, 1.0]
+    let speed = rng.random_range(0.0..=1.0);
+
+    dir * speed
+}
+
+/// Uniformly samples a random unit vector on the sphere
+fn random_unit_vector(rng: &mut impl Rng) -> Vec3 {
+    let u: f32 = rng.random_range(-1.0..=1.0);
+    let theta: f32 = rng.random_range(0.0..=std::f32::consts::TAU);
+
+    let sqrt_term = (1.0 - u * u).sqrt();
+    let x = sqrt_term * theta.cos();
+    let y = sqrt_term * theta.sin();
+    let z = u;
+
+    Vec3::new(x, y, z)
+}
+
 pub struct SpherePlugin;
 
 impl Plugin for SpherePlugin {
@@ -281,6 +333,10 @@ impl Plugin for SpherePlugin {
             .add_systems(
                 Update,
                 (handle_finished_continents).run_if(in_state(WorldGenState::FinishedContinents)),
+            )
+            .add_systems(
+                FixedUpdate,
+                (do_plate_velocities).run_if(in_state(WorldGenState::GenPlateVelocities)),
             )
             .add_systems(Update, change_face_color);
     }
