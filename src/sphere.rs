@@ -21,9 +21,7 @@ pub struct Face {
 }
 
 #[derive(Component)]
-pub struct FaceNeighbours {
-    pub neighbours: Vec<Entity>,
-}
+pub struct FaceNeighbours(Vec<Entity>);
 
 #[derive(Component)]
 pub struct ChangeColour {
@@ -31,7 +29,10 @@ pub struct ChangeColour {
 }
 
 #[derive(Component)]
-pub struct PlateFrontier;
+pub struct PlateBoundary;
+
+#[derive(Component)]
+pub struct PlateGenFrontier;
 
 #[derive(Component)]
 pub struct Land;
@@ -85,7 +86,7 @@ fn create_sphere(
                 ..default()
             })),
             Face { centre_pos },
-            FaceNeighbours { neighbours },
+            FaceNeighbours(neighbours),
             Transform::from_xyz(0.0, 0.0, 0.0),
         ));
     }
@@ -105,7 +106,7 @@ fn create_sphere(
             ChangeColour {
                 colour: color_palette[i],
             },
-            PlateFrontier,
+            PlateGenFrontier,
         ));
     }
 }
@@ -139,14 +140,14 @@ fn build_fan_triangulation(face: subsphere::hex::Face<subsphere::proj::Fuller>) 
 fn flood_fill(
     mut commands: Commands,
     palette: Res<PlatePalette>,
-    q_faces: Query<(Entity, &FaceNeighbours, &Plate), With<PlateFrontier>>,
+    q_faces: Query<(Entity, &FaceNeighbours, &Plate), With<PlateGenFrontier>>,
     q_regions: Query<&Plate>,
 ) {
     let mut rng = rand::rng();
     // iterate through the faces that are on the frontier
-    for (face_entity_id, face, region) in q_faces.iter() {
+    for (face_entity_id, face_neighbours, region) in q_faces.iter() {
         // choose a random neighbour for that face
-        if let Some(neighbour_entity) = face.neighbours.choose(&mut rng) {
+        if let Some(neighbour_entity) = face_neighbours.0.choose(&mut rng) {
             // if the chosen neighour has not yet been assigned a region
             if q_regions.get(*neighbour_entity).is_err() {
                 // assign it to the current face's region and mark it as on the frontier
@@ -156,17 +157,17 @@ fn flood_fill(
                     ChangeColour {
                         colour: palette.0[region.0],
                     },
-                    PlateFrontier,
+                    PlateGenFrontier,
                 ));
 
                 // if all neighbours have been assigned a region
-                if face
-                    .neighbours
+                if face_neighbours
+                    .0
                     .iter()
                     .all(|&neighbour_entity_id| q_regions.get(neighbour_entity_id).is_ok())
                 {
                     // the current face is no longer on the frontier
-                    commands.entity(face_entity_id).remove::<PlateFrontier>();
+                    commands.entity(face_entity_id).remove::<PlateGenFrontier>();
                 }
             }
         }
@@ -200,10 +201,10 @@ fn gen_colour_palette(n: usize, rng: &mut ThreadRng) -> Vec<Color> {
 
 fn check_if_finished_plates(
     mut state: ResMut<NextState<WorldGenState>>,
-    query_faces: Query<Entity, (With<FaceNeighbours>, Without<Plate>)>,
+    query_unassigned_faces: Query<Entity, (With<FaceNeighbours>, Without<Plate>)>,
 ) {
-    if query_faces.iter().len() == 0 {
-        state.set(WorldGenState::GenContinents);
+    if query_unassigned_faces.iter().len() == 0 {
+        state.set(WorldGenState::FinishedPlates);
     }
 }
 
@@ -238,8 +239,27 @@ fn assign_continental_plates(
         }
     }
 
-    state.set(WorldGenState::JustChill);
+    state.set(WorldGenState::FinishedContinents);
 }
+
+fn handle_finished_plates(
+    keyboard_input: Res<ButtonInput<KeyCode>>,
+    mut state: ResMut<NextState<WorldGenState>>,
+) {
+    if keyboard_input.just_pressed(KeyCode::Space) {
+        state.set(WorldGenState::GenContinents);
+    }
+}
+
+fn handle_finished_continents(
+    keyboard_input: Res<ButtonInput<KeyCode>>,
+    mut state: ResMut<NextState<WorldGenState>>,
+) {
+    if keyboard_input.just_pressed(KeyCode::Space) {
+        state.set(WorldGenState::JustChill);
+    }
+}
+
 pub struct SpherePlugin;
 
 impl Plugin for SpherePlugin {
@@ -251,8 +271,16 @@ impl Plugin for SpherePlugin {
                     .run_if(in_state(WorldGenState::GenPlates)),
             )
             .add_systems(
+                Update,
+                (handle_finished_plates).run_if(in_state(WorldGenState::FinishedPlates)),
+            )
+            .add_systems(
                 FixedUpdate,
                 (assign_continental_plates).run_if(in_state(WorldGenState::GenContinents)),
+            )
+            .add_systems(
+                Update,
+                (handle_finished_continents).run_if(in_state(WorldGenState::FinishedContinents)),
             )
             .add_systems(Update, change_face_color);
     }

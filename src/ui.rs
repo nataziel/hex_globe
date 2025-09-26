@@ -8,7 +8,13 @@ use crate::states::WorldGenState;
 struct GenPlatesUiText;
 
 #[derive(Component)]
+struct FinishedPlatesUiText;
+
+#[derive(Component)]
 struct GenContinentsUiText;
+
+#[derive(Component)]
+struct FinishedContinentsUiText;
 
 #[derive(Component)]
 struct JustChillUiText;
@@ -36,6 +42,32 @@ fn cleanup_gen_plates_ui(mut commands: Commands, q: Query<Entity, With<GenPlates
     commands.entity(entity_id).despawn();
 }
 
+fn setup_finished_plates_ui(mut commands: Commands) {
+    commands.spawn((
+        // Accepts a `String` or any type that converts into a `String`, such as `&str`
+        Text::new("Press space to continue to generating continents"),
+        // Set the justification of the Text
+        TextLayout::new_with_justify(JustifyText::Center),
+        // Set the style of the Node itself.
+        Node {
+            position_type: PositionType::Absolute,
+            bottom: Val::Px(5.0),
+            right: Val::Px(5.0),
+            ..default()
+        },
+        FinishedPlatesUiText,
+    ));
+}
+
+fn cleanup_finished_plates_ui(
+    mut commands: Commands,
+    q: Query<Entity, With<FinishedPlatesUiText>>,
+) {
+    let entity_id = q.single().unwrap();
+
+    commands.entity(entity_id).despawn();
+}
+
 fn setup_gen_continents_ui(mut commands: Commands) {
     commands.spawn((
         // Accepts a `String` or any type that converts into a `String`, such as `&str`
@@ -54,6 +86,32 @@ fn setup_gen_continents_ui(mut commands: Commands) {
 }
 
 fn cleanup_gen_continents_ui(mut commands: Commands, q: Query<Entity, With<GenContinentsUiText>>) {
+    let entity_id = q.single().unwrap();
+
+    commands.entity(entity_id).despawn();
+}
+
+fn setup_finished_continents_ui(mut commands: Commands) {
+    commands.spawn((
+        // Accepts a `String` or any type that converts into a `String`, such as `&str`
+        Text::new("Press space to continue to generating plate velocities"),
+        // Set the justification of the Text
+        TextLayout::new_with_justify(JustifyText::Center),
+        // Set the style of the Node itself.
+        Node {
+            position_type: PositionType::Absolute,
+            bottom: Val::Px(5.0),
+            right: Val::Px(5.0),
+            ..default()
+        },
+        FinishedContinentsUiText,
+    ));
+}
+
+fn cleanup_finished_continents_ui(
+    mut commands: Commands,
+    q: Query<Entity, With<FinishedContinentsUiText>>,
+) {
     let entity_id = q.single().unwrap();
 
     commands.entity(entity_id).despawn();
@@ -89,12 +147,28 @@ impl Plugin for UiPlugin {
         app.add_systems(OnEnter(WorldGenState::GenPlates), setup_gen_plates_ui)
             .add_systems(OnExit(WorldGenState::GenPlates), cleanup_gen_plates_ui)
             .add_systems(
+                OnEnter(WorldGenState::FinishedPlates),
+                setup_finished_plates_ui,
+            )
+            .add_systems(
+                OnExit(WorldGenState::FinishedPlates),
+                cleanup_finished_plates_ui,
+            )
+            .add_systems(
                 OnEnter(WorldGenState::GenContinents),
                 setup_gen_continents_ui,
             )
             .add_systems(
                 OnExit(WorldGenState::GenContinents),
                 cleanup_gen_continents_ui,
+            )
+            .add_systems(
+                OnEnter(WorldGenState::FinishedContinents),
+                setup_finished_continents_ui,
+            )
+            .add_systems(
+                OnExit(WorldGenState::FinishedContinents),
+                cleanup_finished_continents_ui,
             )
             .add_systems(OnEnter(WorldGenState::JustChill), setup_just_chill_ui)
             .add_systems(OnExit(WorldGenState::JustChill), cleanup_just_chill_ui);

@@ -35,7 +35,6 @@ fn main() {
         .add_plugins(SpherePlugin)
         .add_systems(Update, update_directional_light)
         .run();
-
 }
 
 #[derive(Component)]
