@@ -97,23 +97,8 @@ fn create_sphere(
     }
 
     // Create plates colour palette
-    let color_palette = gen_colour_palette(N_PLATES, &mut rng);
-    commands.insert_resource(PlatePalette(color_palette.clone()));
-
-    // Select starting faces for flood fill
-    let starting_faces = face_entities
-        .choose_multiple(&mut rng, N_PLATES)
-        .copied()
-        .collect::<Vec<_>>();
-    for (i, entity) in starting_faces.iter().enumerate() {
-        commands.entity(*entity).insert((
-            Plate(i),
-            ChangeColour {
-                colour: color_palette[i],
-            },
-            PlateGenFrontier,
-        ));
-    }
+    let colour_palette = gen_colour_palette(N_PLATES, &mut rng);
+    commands.insert_resource(PlatePalette(colour_palette.clone()));
 }
 
 fn get_centre_vec(face: subsphere::hex::Face<subsphere::proj::Fuller>) -> Vec3 {
@@ -140,6 +125,31 @@ fn build_fan_triangulation(face: subsphere::hex::Face<subsphere::proj::Fuller>) 
         positions.push([v2[0] as f32, v2[1] as f32, v2[2] as f32]);
     }
     positions
+}
+
+// Select starting faces for flood fill
+fn seed_flood_fill(
+    mut commands: Commands,
+    face_query: Query<Entity, With<Face>>,
+    palette: Res<PlatePalette>,
+) {
+    let face_entities: Vec<Entity> = face_query.into_iter().collect();
+
+    let mut rng = rand::rng();
+
+    let starting_faces = face_entities
+        .choose_multiple(&mut rng, N_PLATES)
+        .copied()
+        .collect::<Vec<_>>();
+    for (i, entity) in starting_faces.iter().enumerate() {
+        commands.entity(*entity).insert((
+            Plate(i),
+            ChangeColour {
+                colour: palette.0[i],
+            },
+            PlateGenFrontier,
+        ));
+    }
 }
 
 fn flood_fill(
@@ -254,6 +264,7 @@ fn handle_finished_plates(
     if keyboard_input.just_pressed(KeyCode::Space) {
         state.set(WorldGenState::GenContinents);
     }
+    if keyboard_input.just_pressed(KeyCode::KeyR) {}
 }
 
 fn handle_finished_continents(
@@ -316,7 +327,7 @@ pub struct SpherePlugin;
 
 impl Plugin for SpherePlugin {
     fn build(&self, app: &mut App) {
-        app.add_systems(Startup, create_sphere)
+        app.add_systems(Startup, (create_sphere, seed_flood_fill).chain())
             .add_systems(
                 FixedUpdate,
                 ((flood_fill, check_if_finished_plates).chain())
