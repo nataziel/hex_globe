@@ -264,7 +264,12 @@ fn handle_finished_plates(
     if keyboard_input.just_pressed(KeyCode::Space) {
         state.set(WorldGenState::GenContinents);
     }
-    if keyboard_input.just_pressed(KeyCode::KeyR) {}
+    if keyboard_input.just_pressed(KeyCode::KeyR) {
+        // remove the colour from every face
+        // remove the `Plate` component from every face
+        // seed the flood fill
+        // change state to GenPlates
+    }
 }
 
 fn handle_finished_continents(
