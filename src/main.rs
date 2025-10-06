@@ -22,7 +22,7 @@ use crate::{sphere::SpherePlugin, states::StatePlugin, ui::UiPlugin};
 
 const TICK_RATE: u64 = 100;
 
-fn main() {
+fn main() -> AppExit {
     App::new()
         .add_plugins(DefaultPlugins)
         .add_plugins(PanOrbitCameraPlugin)
@@ -34,7 +34,7 @@ fn main() {
         .add_plugins(UiPlugin)
         .add_plugins(SpherePlugin)
         .add_systems(Update, update_directional_light)
-        .run();
+        .run()
 }
 
 #[derive(Component)]
