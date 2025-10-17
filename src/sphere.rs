@@ -273,11 +273,15 @@ fn handle_finished_plates(
 }
 
 fn handle_finished_continents(
+    mut commands: Commands,
     keyboard_input: Res<ButtonInput<KeyCode>>,
     mut state: ResMut<NextState<WorldGenState>>,
 ) {
     if keyboard_input.just_pressed(KeyCode::Space) {
         state.set(WorldGenState::JustChill);
+    }
+    if keyboard_input.just_pressed(KeyCode::KeyR) {
+        commands.trigger(ResetContinents);
     }
 }
 
@@ -354,6 +358,22 @@ impl Plugin for SpherePlugin {
                 FixedUpdate,
                 (do_plate_velocities).run_if(in_state(WorldGenState::GenPlateVelocities)),
             )
-            .add_systems(Update, change_face_color);
+            .add_systems(Update, change_face_color)
+            .add_observer(reset_continents);
     }
+}
+
+#[derive(Event)]
+struct ResetContinents;
+
+fn reset_continents(
+    _: On<ResetContinents>,
+    mut commands: Commands,
+    mut state: ResMut<NextState<WorldGenState>>,
+    query_faces: Query<Entity, Or<(With<Land>, With<Sea>)>>,
+) {
+    for entity in query_faces.iter() {
+        commands.entity(entity).remove::<(Land, Sea)>();
+    }
+    state.set(WorldGenState::GenContinents);
 }

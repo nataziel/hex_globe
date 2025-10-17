@@ -106,15 +106,29 @@ fn setup_finished_continents_ui(mut commands: Commands) {
         },
         FinishedContinentsUiText,
     ));
+    commands.spawn((
+        // Accepts a `String` or any type that converts into a `String`, such as `&str`
+        Text::new("Press R to re-generate continents"),
+        // Set the justification of the Text
+        TextLayout::new_with_justify(Justify::Center),
+        // Set the style of the Node itself.
+        Node {
+            position_type: PositionType::Absolute,
+            bottom: Val::Px(50.0),
+            right: Val::Px(5.0),
+            ..default()
+        },
+        FinishedContinentsUiText,
+    ));
 }
 
 fn cleanup_finished_continents_ui(
     mut commands: Commands,
     q: Query<Entity, With<FinishedContinentsUiText>>,
 ) {
-    let entity_id = q.single().unwrap();
-
-    commands.entity(entity_id).despawn();
+    for entity_id in q.iter() {
+        commands.entity(entity_id).despawn();
+    }
 }
 
 fn setup_gen_velocities_ui(mut commands: Commands) {
