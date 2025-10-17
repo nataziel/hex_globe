@@ -192,7 +192,7 @@ fn flood_fill(
 fn change_face_color(
     mut commands: Commands,
     mut materials: ResMut<Assets<StandardMaterial>>,
-    query: Query<(Entity, &MeshMaterial3d<StandardMaterial>, &ChangeColour), With<FaceNeighbours>>,
+    query: Query<(Entity, &MeshMaterial3d<StandardMaterial>, &ChangeColour), With<Face>>,
 ) {
     for (entity_id, material_handle, colour) in query.iter() {
         if let Some(material) = materials.get_mut(material_handle) {
@@ -216,7 +216,7 @@ fn gen_colour_palette(n: usize, rng: &mut ThreadRng) -> Vec<Color> {
 
 fn check_if_finished_plates(
     mut state: ResMut<NextState<WorldGenState>>,
-    query_unassigned_faces: Query<Entity, (With<FaceNeighbours>, Without<Plate>)>,
+    query_unassigned_faces: Query<Entity, (With<Face>, Without<Plate>)>,
 ) {
     if query_unassigned_faces.iter().len() == 0 {
         state.set(WorldGenState::FinishedPlates);
@@ -226,7 +226,7 @@ fn check_if_finished_plates(
 fn assign_continental_plates(
     mut commands: Commands,
     mut state: ResMut<NextState<WorldGenState>>,
-    query_faces: Query<(Entity, &Plate), With<FaceNeighbours>>,
+    query_faces: Query<(Entity, &Plate), With<Face>>,
 ) {
     let mut rng = rand::rng();
 
