@@ -2,7 +2,7 @@
 
 use bevy::prelude::*;
 
-use crate::states::WorldGenState;
+use crate::states::{SimulationState, WorldGenState};
 
 #[derive(Component)]
 struct GenPlatesUiText;
@@ -18,6 +18,9 @@ struct FinishedContinentsUiText;
 
 #[derive(Component)]
 struct JustChillUiText;
+
+#[derive(Component)]
+struct SimulationRunningUiText;
 
 fn setup_gen_plates_ui(mut commands: Commands) {
     commands.spawn((
@@ -169,12 +172,52 @@ fn setup_just_chill_ui(mut commands: Commands) {
         },
         JustChillUiText,
     ));
+    commands.spawn((
+        // Accepts a `String` or any type that converts into a `String`, such as `&str`
+        Text::new("Press space to begin the simulation"),
+        // Set the justification of the Text
+        TextLayout::new_with_justify(Justify::Center),
+        // Set the style of the Node itself.
+        Node {
+            position_type: PositionType::Absolute,
+            bottom: Val::Px(50.0),
+            right: Val::Px(5.0),
+            ..default()
+        },
+        JustChillUiText,
+    ));
 }
 
 fn cleanup_just_chill_ui(mut commands: Commands, q: Query<Entity, With<JustChillUiText>>) {
-    let entity_id = q.single().unwrap();
+    for entity_id in q.iter() {
+        commands.entity(entity_id).despawn();
+    }
+}
 
-    commands.entity(entity_id).despawn();
+fn setup_simulation_running_ui(mut commands: Commands) {
+    commands.spawn((
+        // Accepts a `String` or any type that converts into a `String`, such as `&str`
+        Text::new("The simulation is now running"),
+        // Set the justification of the Text
+        TextLayout::new_with_justify(Justify::Center),
+        // Set the style of the Node itself.
+        Node {
+            position_type: PositionType::Absolute,
+            bottom: Val::Px(5.0),
+            right: Val::Px(5.0),
+            ..default()
+        },
+        JustChillUiText,
+    ));
+}
+
+fn cleanup_simulation_running_ui(
+    mut commands: Commands,
+    q: Query<Entity, With<SimulationRunningUiText>>,
+) {
+    for entity_id in q.iter() {
+        commands.entity(entity_id).despawn();
+    }
 }
 
 pub struct UiPlugin;
@@ -216,6 +259,14 @@ impl Plugin for UiPlugin {
                 cleanup_gen_velocities_ui,
             )
             .add_systems(OnEnter(WorldGenState::JustChill), setup_just_chill_ui)
-            .add_systems(OnExit(WorldGenState::JustChill), cleanup_just_chill_ui);
+            .add_systems(OnExit(WorldGenState::JustChill), cleanup_just_chill_ui)
+            .add_systems(
+                OnEnter(SimulationState::Running),
+                setup_simulation_running_ui,
+            )
+            .add_systems(
+                OnExit(SimulationState::Running),
+                cleanup_simulation_running_ui,
+            );
     }
 }

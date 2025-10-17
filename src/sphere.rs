@@ -1,11 +1,11 @@
-use bevy::prelude::*;
 use bevy::asset::RenderAssetUsages;
+use bevy::prelude::*;
 use bevy::render::render_resource::PrimitiveTopology;
 use rand::{Rng, rngs::ThreadRng, seq::IndexedRandom};
 use std::num::NonZero;
 use subsphere::prelude::*;
 
-use crate::states::WorldGenState;
+use crate::states::{SimulationState, WorldGenState};
 
 const N_PLATES: usize = 40;
 
@@ -332,6 +332,17 @@ fn random_unit_vector(rng: &mut impl Rng) -> Vec3 {
     Vec3::new(x, y, z)
 }
 
+fn handle_just_chill(
+    keyboard_input: Res<ButtonInput<KeyCode>>,
+    mut gen_state: ResMut<NextState<WorldGenState>>,
+    mut sim_state: ResMut<NextState<SimulationState>>,
+) {
+    if keyboard_input.just_pressed(KeyCode::Space) {
+        gen_state.set(WorldGenState::Finished);
+        sim_state.set(SimulationState::Running);
+    }
+}
+
 pub struct SpherePlugin;
 
 impl Plugin for SpherePlugin {
@@ -357,6 +368,10 @@ impl Plugin for SpherePlugin {
             .add_systems(
                 FixedUpdate,
                 (do_plate_velocities).run_if(in_state(WorldGenState::GenPlateVelocities)),
+            )
+            .add_systems(
+                FixedUpdate,
+                (handle_just_chill).run_if(in_state(WorldGenState::JustChill)),
             )
             .add_systems(Update, change_face_color)
             .add_observer(reset_continents);
