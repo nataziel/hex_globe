@@ -10,6 +10,7 @@ pub enum GameState {
 #[source(GameState = GameState::WorldGen)]
 pub enum WorldGenState {
     #[default]
+    SeedPlates,
     GenPlates,
     FinishedPlates,
     GenContinents,

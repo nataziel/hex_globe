@@ -2,16 +2,17 @@
 #![allow(clippy::cast_possible_truncation)]
 //! Generate a sphere of hexagons and pentagons, render it nicely
 
-mod sphere;
+mod setup;
 mod states;
 mod ui;
+mod worldgen;
 
 use bevy::prelude::*;
 use bevy_panorbit_camera::{PanOrbitCamera, PanOrbitCameraPlugin};
 
 use std::time::Duration;
 
-use crate::{sphere::SpherePlugin, states::StatePlugin, ui::UiPlugin};
+use crate::{setup::SetupPlugin, states::StatePlugin, ui::UiPlugin, worldgen::WorldGenPlugin};
 
 const TICK_RATE: u64 = 100;
 
@@ -23,9 +24,10 @@ fn main() -> AppExit {
             TICK_RATE,
         )))
         .add_systems(Startup, setup)
+        .add_plugins(SetupPlugin)
+        .add_plugins(WorldGenPlugin)
         .add_plugins(StatePlugin)
         .add_plugins(UiPlugin)
-        .add_plugins(SpherePlugin)
         .add_systems(Update, update_directional_light)
         .run()
 }
