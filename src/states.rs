@@ -1,7 +1,15 @@
 use bevy::prelude::*;
 
 #[derive(States, Clone, Eq, PartialEq, Hash, Debug)]
+pub enum GameState {
+    WorldGen,
+    Simulation,
+}
+
+#[derive(SubStates, Clone, Eq, PartialEq, Hash, Debug, Default)]
+#[source(GameState = GameState::WorldGen)]
 pub enum WorldGenState {
+    #[default]
     GenPlates,
     FinishedPlates,
     GenContinents,
@@ -12,9 +20,10 @@ pub enum WorldGenState {
     Finished,
 }
 
-#[derive(States, Clone, Eq, PartialEq, Hash, Debug)]
+#[derive(SubStates, Clone, Eq, PartialEq, Hash, Debug, Default)]
+#[source(GameState = GameState::Simulation)]
 pub enum SimulationState {
-    Setup,
+    #[default]
     Running,
 }
 
@@ -22,7 +31,8 @@ pub struct StatePlugin;
 
 impl Plugin for StatePlugin {
     fn build(&self, app: &mut App) {
-        app.insert_state(WorldGenState::GenPlates)
-            .insert_state(SimulationState::Setup);
+        app.insert_state(GameState::WorldGen)
+            .add_sub_state::<WorldGenState>()
+            .add_sub_state::<SimulationState>();
     }
 }

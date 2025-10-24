@@ -5,7 +5,7 @@ use rand::{Rng, rngs::ThreadRng, seq::IndexedRandom};
 use std::num::NonZero;
 use subsphere::prelude::*;
 
-use crate::states::{SimulationState, WorldGenState};
+use crate::states::{GameState, WorldGenState};
 
 const N_PLATES: usize = 40;
 
@@ -334,12 +334,12 @@ fn random_unit_vector(rng: &mut impl Rng) -> Vec3 {
 
 fn handle_just_chill(
     keyboard_input: Res<ButtonInput<KeyCode>>,
+    mut game_state: ResMut<NextState<GameState>>,
     mut gen_state: ResMut<NextState<WorldGenState>>,
-    mut sim_state: ResMut<NextState<SimulationState>>,
 ) {
     if keyboard_input.just_pressed(KeyCode::Space) {
         gen_state.set(WorldGenState::Finished);
-        sim_state.set(SimulationState::Running);
+        game_state.set(GameState::Simulation);
     }
 }
 
