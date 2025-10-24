@@ -370,7 +370,7 @@ impl Plugin for SpherePlugin {
                 (do_plate_velocities).run_if(in_state(WorldGenState::GenPlateVelocities)),
             )
             .add_systems(
-                FixedUpdate,
+                Update,
                 (handle_just_chill).run_if(in_state(WorldGenState::JustChill)),
             )
             .add_systems(Update, change_face_color)
