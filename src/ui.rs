@@ -39,12 +39,6 @@ fn setup_gen_plates_ui(mut commands: Commands) {
     ));
 }
 
-fn cleanup_gen_plates_ui(mut commands: Commands, q: Query<Entity, With<GenPlatesUiText>>) {
-    let entity_id = q.single().unwrap();
-
-    commands.entity(entity_id).despawn();
-}
-
 fn setup_finished_plates_ui(mut commands: Commands) {
     commands.spawn((
         // Accepts a `String` or any type that converts into a `String`, such as `&str`
@@ -62,15 +56,6 @@ fn setup_finished_plates_ui(mut commands: Commands) {
     ));
 }
 
-fn cleanup_finished_plates_ui(
-    mut commands: Commands,
-    q: Query<Entity, With<FinishedPlatesUiText>>,
-) {
-    let entity_id = q.single().unwrap();
-
-    commands.entity(entity_id).despawn();
-}
-
 fn setup_gen_continents_ui(mut commands: Commands) {
     commands.spawn((
         // Accepts a `String` or any type that converts into a `String`, such as `&str`
@@ -86,12 +71,6 @@ fn setup_gen_continents_ui(mut commands: Commands) {
         },
         GenContinentsUiText,
     ));
-}
-
-fn cleanup_gen_continents_ui(mut commands: Commands, q: Query<Entity, With<GenContinentsUiText>>) {
-    let entity_id = q.single().unwrap();
-
-    commands.entity(entity_id).despawn();
 }
 
 fn setup_finished_continents_ui(mut commands: Commands) {
@@ -125,15 +104,6 @@ fn setup_finished_continents_ui(mut commands: Commands) {
     ));
 }
 
-fn cleanup_finished_continents_ui(
-    mut commands: Commands,
-    q: Query<Entity, With<FinishedContinentsUiText>>,
-) {
-    for entity_id in q.iter() {
-        commands.entity(entity_id).despawn();
-    }
-}
-
 fn setup_gen_velocities_ui(mut commands: Commands) {
     commands.spawn((
         // Accepts a `String` or any type that converts into a `String`, such as `&str`
@@ -149,12 +119,6 @@ fn setup_gen_velocities_ui(mut commands: Commands) {
         },
         JustChillUiText,
     ));
-}
-
-fn cleanup_gen_velocities_ui(mut commands: Commands, q: Query<Entity, With<JustChillUiText>>) {
-    let entity_id = q.single().unwrap();
-
-    commands.entity(entity_id).despawn();
 }
 
 fn setup_just_chill_ui(mut commands: Commands) {
@@ -188,12 +152,6 @@ fn setup_just_chill_ui(mut commands: Commands) {
     ));
 }
 
-fn cleanup_just_chill_ui(mut commands: Commands, q: Query<Entity, With<JustChillUiText>>) {
-    for entity_id in q.iter() {
-        commands.entity(entity_id).despawn();
-    }
-}
-
 fn setup_simulation_running_ui(mut commands: Commands) {
     commands.spawn((
         // Accepts a `String` or any type that converts into a `String`, such as `&str`
@@ -211,10 +169,7 @@ fn setup_simulation_running_ui(mut commands: Commands) {
     ));
 }
 
-fn cleanup_simulation_running_ui(
-    mut commands: Commands,
-    q: Query<Entity, With<SimulationRunningUiText>>,
-) {
+fn cleanup_ui<T: Component>(mut commands: Commands, q: Query<Entity, With<T>>) {
     for entity_id in q.iter() {
         commands.entity(entity_id).despawn();
     }
@@ -225,14 +180,17 @@ pub struct UiPlugin;
 impl Plugin for UiPlugin {
     fn build(&self, app: &mut App) {
         app.add_systems(OnEnter(WorldGenState::GenPlates), setup_gen_plates_ui)
-            .add_systems(OnExit(WorldGenState::GenPlates), cleanup_gen_plates_ui)
+            .add_systems(
+                OnExit(WorldGenState::GenPlates),
+                cleanup_ui::<GenPlatesUiText>,
+            )
             .add_systems(
                 OnEnter(WorldGenState::FinishedPlates),
                 setup_finished_plates_ui,
             )
             .add_systems(
                 OnExit(WorldGenState::FinishedPlates),
-                cleanup_finished_plates_ui,
+                cleanup_ui::<FinishedPlatesUiText>,
             )
             .add_systems(
                 OnEnter(WorldGenState::GenContinents),
@@ -240,7 +198,7 @@ impl Plugin for UiPlugin {
             )
             .add_systems(
                 OnExit(WorldGenState::GenContinents),
-                cleanup_gen_continents_ui,
+                cleanup_ui::<GenContinentsUiText>,
             )
             .add_systems(
                 OnEnter(WorldGenState::FinishedContinents),
@@ -248,7 +206,7 @@ impl Plugin for UiPlugin {
             )
             .add_systems(
                 OnExit(WorldGenState::FinishedContinents),
-                cleanup_finished_continents_ui,
+                cleanup_ui::<FinishedContinentsUiText>,
             )
             .add_systems(
                 OnEnter(WorldGenState::GenPlateVelocities),
@@ -256,17 +214,20 @@ impl Plugin for UiPlugin {
             )
             .add_systems(
                 OnExit(WorldGenState::GenPlateVelocities),
-                cleanup_gen_velocities_ui,
+                cleanup_ui::<JustChillUiText>,
             )
             .add_systems(OnEnter(WorldGenState::JustChill), setup_just_chill_ui)
-            .add_systems(OnExit(WorldGenState::JustChill), cleanup_just_chill_ui)
+            .add_systems(
+                OnExit(WorldGenState::JustChill),
+                cleanup_ui::<JustChillUiText>,
+            )
             .add_systems(
                 OnEnter(SimulationState::Running),
                 setup_simulation_running_ui,
             )
             .add_systems(
                 OnExit(SimulationState::Running),
-                cleanup_simulation_running_ui,
+                cleanup_ui::<SimulationRunningUiText>,
             );
     }
 }
