@@ -71,6 +71,19 @@ fn create_sphere(
             FaceNeighbours(neighbours),
             Transform::from_xyz(0.0, 0.0, 0.0),
         ));
+
+        let outline_mesh = build_outline_mesh(face);
+
+        commands.entity(face_entities[i]).with_children(|c| {
+            c.spawn((
+                Mesh3d(meshes.add(outline_mesh)),
+                MeshMaterial3d(materials.add(StandardMaterial {
+                    base_color: Color::BLACK,
+                    // unlit: true,
+                    ..default()
+                })),
+            ));
+        });
     }
 }
 
@@ -118,6 +131,25 @@ fn build_fan_triangulation(face: subsphere::hex::Face<subsphere::proj::Fuller>) 
         positions.push([v2[0] as f32, v2[1] as f32, v2[2] as f32]);
     }
     positions
+}
+
+fn build_outline_mesh(face: subsphere::hex::Face<subsphere::proj::Fuller>) -> Mesh {
+    let mut face_vertices: Vec<Vec3> = face
+        .vertices()
+        .map(|v| {
+            let p = v.pos();
+            Vec3::new(p[0] as f32, p[1] as f32, p[2] as f32) * 1.0001 // tiny little offset so it sits just above the sphere
+        })
+        .collect();
+
+    // to wrap back to the first point
+    face_vertices.push(face_vertices[0]);
+
+    let mut mesh = Mesh::new(PrimitiveTopology::LineStrip, RenderAssetUsages::default());
+
+    mesh.insert_attribute(Mesh::ATTRIBUTE_POSITION, face_vertices);
+
+    return mesh;
 }
 
 fn change_face_color(
