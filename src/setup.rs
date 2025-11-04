@@ -149,7 +149,7 @@ fn build_outline_mesh(face: subsphere::hex::Face<subsphere::proj::Fuller>) -> Me
 
     mesh.insert_attribute(Mesh::ATTRIBUTE_POSITION, face_vertices);
 
-    return mesh;
+    mesh
 }
 
 fn change_face_color(
