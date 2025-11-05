@@ -13,6 +13,8 @@ pub enum WorldGenState {
     SeedPlates,
     GenPlates,
     FinishedPlates,
+    AssignPlateBoundaries,
+    FinishedPlateBoundaries,
     GenContinents,
     FinishedContinents,
     GenPlateVelocities,

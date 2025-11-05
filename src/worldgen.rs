@@ -97,6 +97,33 @@ fn check_if_finished_plates(
     }
 }
 
+fn assign_plate_boundaries(
+    q_faces: Query<(Entity, &FaceNeighbours, &Plate)>,
+    q_regions: Query<&Plate>,
+    mut commands: Commands,
+    mut state: ResMut<NextState<WorldGenState>>,
+) {
+    for (face_entity_id, face_neighbours, plate) in q_faces.iter() {
+        // if any neighbours are from a different region
+        if face_neighbours.iter().any(|&neighbour_entity_id| {
+            match q_regions.get(neighbour_entity_id) {
+                Ok(neighbour_plate) => neighbour_plate != plate,
+                Err(_) => unreachable!(), // this should be impossible, at this point every face should be assigned a plate
+            }
+        }) {
+            // this face is on a plate boundary
+            commands.entity(face_entity_id).insert((
+                PlateBoundary,
+                ChangeColour {
+                    colour: Color::BLACK,
+                },
+            ));
+        }
+    }
+
+    state.set(WorldGenState::FinishedPlateBoundaries)
+}
+
 fn assign_continental_plates(
     mut commands: Commands,
     mut state: ResMut<NextState<WorldGenState>>,
@@ -136,7 +163,7 @@ fn handle_finished_plates(
     mut state: ResMut<NextState<WorldGenState>>,
 ) {
     if keyboard_input.just_pressed(KeyCode::Space) {
-        state.set(WorldGenState::GenContinents);
+        state.set(WorldGenState::AssignPlateBoundaries);
     }
     if keyboard_input.just_pressed(KeyCode::KeyR) {
         // remove the colour from every face
@@ -146,13 +173,22 @@ fn handle_finished_plates(
     }
 }
 
+fn handle_finished_plate_boundaries(
+    keyboard_input: Res<ButtonInput<KeyCode>>,
+    mut state: ResMut<NextState<WorldGenState>>,
+) {
+    if keyboard_input.just_pressed(KeyCode::Space) {
+        state.set(WorldGenState::GenContinents);
+    }
+}
+
 fn handle_finished_continents(
     mut commands: Commands,
     keyboard_input: Res<ButtonInput<KeyCode>>,
     mut state: ResMut<NextState<WorldGenState>>,
 ) {
     if keyboard_input.just_pressed(KeyCode::Space) {
-        state.set(WorldGenState::JustChill);
+        state.set(WorldGenState::GenPlateVelocities);
     }
     if keyboard_input.just_pressed(KeyCode::KeyR) {
         commands.trigger(ResetContinents);
@@ -245,6 +281,15 @@ impl Plugin for WorldGenPlugin {
         .add_systems(
             Update,
             (handle_finished_plates).run_if(in_state(WorldGenState::FinishedPlates)),
+        )
+        .add_systems(
+            FixedUpdate,
+            (assign_plate_boundaries).run_if(in_state(WorldGenState::AssignPlateBoundaries)),
+        )
+        .add_systems(
+            Update,
+            (handle_finished_plate_boundaries)
+                .run_if(in_state(WorldGenState::FinishedPlateBoundaries)),
         )
         .add_systems(
             FixedUpdate,

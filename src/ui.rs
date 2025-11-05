@@ -11,6 +11,9 @@ struct GenPlatesUiText;
 struct FinishedPlatesUiText;
 
 #[derive(Component)]
+struct FinishedAssignBoundariesUiText;
+
+#[derive(Component)]
 struct GenContinentsUiText;
 
 #[derive(Component)]
@@ -42,7 +45,7 @@ fn setup_gen_plates_ui(mut commands: Commands) {
 fn setup_finished_plates_ui(mut commands: Commands) {
     commands.spawn((
         // Accepts a `String` or any type that converts into a `String`, such as `&str`
-        Text::new("Press space to continue to generating continents"),
+        Text::new("Press space to continue to assigning plate boundaries"),
         // Set the justification of the Text
         TextLayout::new_with_justify(Justify::Center),
         // Set the style of the Node itself.
@@ -53,6 +56,23 @@ fn setup_finished_plates_ui(mut commands: Commands) {
             ..default()
         },
         FinishedPlatesUiText,
+    ));
+}
+
+fn setup_assigned_boundaries_ui(mut commands: Commands) {
+    commands.spawn((
+        // Accepts a `String` or any type that converts into a `String`, such as `&str`
+        Text::new("Press space to continue to generating continents"),
+        // Set the justification of the Text
+        TextLayout::new_with_justify(Justify::Center),
+        // Set the style of the Node itself.
+        Node {
+            position_type: PositionType::Absolute,
+            bottom: Val::Px(5.0),
+            right: Val::Px(5.0),
+            ..default()
+        },
+        FinishedAssignBoundariesUiText,
     ));
 }
 
@@ -191,6 +211,14 @@ impl Plugin for UiPlugin {
             .add_systems(
                 OnExit(WorldGenState::FinishedPlates),
                 cleanup_ui::<FinishedPlatesUiText>,
+            )
+            .add_systems(
+                OnEnter(WorldGenState::FinishedPlateBoundaries),
+                setup_assigned_boundaries_ui,
+            )
+            .add_systems(
+                OnExit(WorldGenState::FinishedPlateBoundaries),
+                cleanup_ui::<FinishedAssignBoundariesUiText>,
             )
             .add_systems(
                 OnEnter(WorldGenState::GenContinents),
