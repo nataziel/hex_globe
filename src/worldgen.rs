@@ -1,5 +1,5 @@
 use bevy::prelude::*;
-use rand::{Rng, seq::IndexedRandom};
+use rand::{Rng, seq::IndexedRandom, seq::index::sample};
 
 use crate::setup::{ChangeColour, Face, FaceNeighbours, N_PLATES, PlatePalette};
 use crate::states::{GameState, WorldGenState};
@@ -131,11 +131,7 @@ fn assign_continental_plates(
 ) {
     let mut rng = rand::rng();
 
-    let ocean_plates = (0..N_PLATES)
-        .collect::<Vec<_>>()
-        .choose_multiple(&mut rng, N_PLATES / 3)
-        .copied()
-        .collect::<Vec<_>>();
+    let ocean_plates = sample(&mut rng, N_PLATES, N_PLATES / 3).into_vec();
 
     for (entity_id, plate) in query_faces.iter() {
         if ocean_plates.contains(&plate.0) {
@@ -200,11 +196,8 @@ fn do_plate_velocities(
     query_faces: Query<(Entity, &Face, &Plate)>,
     mut state: ResMut<NextState<WorldGenState>>,
 ) {
-    let plate_rotation_vectors: Vec<Vec3> = (0..N_PLATES)
-        .collect::<Vec<_>>()
-        .iter()
-        .map(|_| random_rotation_vector())
-        .collect();
+    let plate_rotation_vectors: Vec<Vec3> =
+        (0..N_PLATES).map(|_| random_rotation_vector()).collect();
 
     for (entity_id, face, plate) in query_faces.iter() {
         let face_velocity = plate_rotation_vectors[plate.0].cross(face.centre_pos);
