@@ -74,16 +74,16 @@ fn flood_fill(
                     },
                     PlateGenFrontier,
                 ));
-
-                // if all neighbours have been assigned a region
-                if face_neighbours
-                    .iter()
-                    .all(|&neighbour_entity_id| q_regions.get(neighbour_entity_id).is_ok())
-                {
-                    // the current face is no longer on the frontier
-                    commands.entity(face_entity_id).remove::<PlateGenFrontier>();
-                }
             }
+        }
+
+        // if all neighbours have been assigned a region
+        if face_neighbours
+            .iter()
+            .all(|&neighbour_entity_id| q_regions.get(neighbour_entity_id).is_ok())
+        {
+            // the current face is no longer on the frontier
+            commands.entity(face_entity_id).remove::<PlateGenFrontier>();
         }
     }
 }
