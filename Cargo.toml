@@ -4,10 +4,14 @@ version = "0.1.0"
 edition = "2024"
 
 [dependencies]
-bevy = { version = "0.17.0", features = ["dynamic_linking"] }
-bevy_panorbit_camera = "0.32.0"
-rand = "0.9.2"
-subsphere = "0.7.1"
+bevy = { version = "0.18", default-features = false, features = [
+    "3d",
+    "dynamic_linking",
+] }
+bevy_panorbit_camera = "0.34"
+noiz = "0.4"
+rand = "0.10"
+subsphere = "0.7"
 
 # Enable a small amount of optimization in the dev profile.
 [profile.dev]

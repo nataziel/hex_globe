@@ -1,7 +1,9 @@
 use bevy::asset::RenderAssetUsages;
+use bevy::math::prelude::*;
 use bevy::prelude::*;
 use bevy::render::render_resource::PrimitiveTopology;
-use rand::{Rng, rngs::ThreadRng};
+use noiz::prelude::*;
+use rand::{RngExt, rngs::ThreadRng};
 use std::num::NonZero;
 use subsphere::prelude::*;
 
@@ -34,6 +36,19 @@ fn create_sphere(
             .with_projector(subsphere::proj::Fuller),
     )
     .unwrap();
+
+    let mut noise = Noise::from(LayeredNoise::new(
+        NormedByDerivative::<f32, EuclideanLength, PeakDerivativeContribution>::default()
+            .with_falloff(0.3),
+        Persistence(0.6),
+        FractalLayers {
+            layer: Octave::<MixCellGradients<OrthoGrid, Smoothstep, QuickGradients, true>>::default(
+            ),
+            lacunarity: 1.8,
+            amount: 8,
+        },
+    ));
+    noise.set_period(0.001);
 
     let mut face_entities = Vec::new();
 
@@ -84,6 +99,9 @@ fn create_sphere(
                 })),
             ));
         });
+
+        let height: f32 = noise.sample(centre_pos);
+        info!("height: {}", height);
     }
 }
 

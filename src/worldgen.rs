@@ -1,5 +1,5 @@
 use bevy::prelude::*;
-use rand::{Rng, seq::IndexedRandom, seq::index::sample};
+use rand::{RngExt, seq::IndexedRandom, seq::index::sample};
 
 use crate::setup::{ChangeColour, Face, FaceNeighbours, N_PLATES, PlatePalette};
 use crate::states::{GameState, WorldGenState};
@@ -38,7 +38,7 @@ fn seed_flood_fill(
     let mut rng = rand::rng();
 
     let starting_faces = face_entities
-        .choose_multiple(&mut rng, N_PLATES)
+        .sample(&mut rng, N_PLATES)
         .copied()
         .collect::<Vec<_>>();
     for (i, entity) in starting_faces.iter().enumerate() {
@@ -121,7 +121,7 @@ fn assign_plate_boundaries(
         }
     }
 
-    state.set(WorldGenState::FinishedPlateBoundaries)
+    state.set(WorldGenState::FinishedPlateBoundaries);
 }
 
 fn assign_continental_plates(
@@ -223,7 +223,7 @@ fn random_rotation_vector() -> Vec3 {
 }
 
 /// Uniformly samples a random unit vector on the sphere
-fn random_unit_vector(rng: &mut impl Rng) -> Vec3 {
+fn random_unit_vector(rng: &mut impl RngExt) -> Vec3 {
     let u: f32 = rng.random_range(-1.0..=1.0);
     let theta: f32 = rng.random_range(0.0..=std::f32::consts::TAU);
 
