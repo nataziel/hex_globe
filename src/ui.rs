@@ -30,7 +30,7 @@ fn setup_gen_plates_ui(mut commands: Commands) {
         // Accepts a `String` or any type that converts into a `String`, such as `&str`
         Text::new("For gen_plates"),
         // Set the justification of the Text
-        TextLayout::new_with_justify(Justify::Center),
+        TextLayout::justify(Justify::Center),
         // Set the style of the Node itself.
         Node {
             position_type: PositionType::Absolute,
@@ -47,7 +47,7 @@ fn setup_finished_plates_ui(mut commands: Commands) {
         // Accepts a `String` or any type that converts into a `String`, such as `&str`
         Text::new("Press space to continue to assigning plate boundaries"),
         // Set the justification of the Text
-        TextLayout::new_with_justify(Justify::Center),
+        TextLayout::justify(Justify::Center),
         // Set the style of the Node itself.
         Node {
             position_type: PositionType::Absolute,
@@ -64,7 +64,7 @@ fn setup_assigned_boundaries_ui(mut commands: Commands) {
         // Accepts a `String` or any type that converts into a `String`, such as `&str`
         Text::new("Press space to continue to generating continents"),
         // Set the justification of the Text
-        TextLayout::new_with_justify(Justify::Center),
+        TextLayout::justify(Justify::Center),
         // Set the style of the Node itself.
         Node {
             position_type: PositionType::Absolute,
@@ -81,7 +81,7 @@ fn setup_gen_continents_ui(mut commands: Commands) {
         // Accepts a `String` or any type that converts into a `String`, such as `&str`
         Text::new("For gen_continents"),
         // Set the justification of the Text
-        TextLayout::new_with_justify(Justify::Center),
+        TextLayout::justify(Justify::Center),
         // Set the style of the Node itself.
         Node {
             position_type: PositionType::Absolute,
@@ -98,7 +98,7 @@ fn setup_finished_continents_ui(mut commands: Commands) {
         // Accepts a `String` or any type that converts into a `String`, such as `&str`
         Text::new("Press space to continue to generating plate velocities"),
         // Set the justification of the Text
-        TextLayout::new_with_justify(Justify::Center),
+        TextLayout::justify(Justify::Center),
         // Set the style of the Node itself.
         Node {
             position_type: PositionType::Absolute,
@@ -112,7 +112,7 @@ fn setup_finished_continents_ui(mut commands: Commands) {
         // Accepts a `String` or any type that converts into a `String`, such as `&str`
         Text::new("Press R to re-generate continents"),
         // Set the justification of the Text
-        TextLayout::new_with_justify(Justify::Center),
+        TextLayout::justify(Justify::Center),
         // Set the style of the Node itself.
         Node {
             position_type: PositionType::Absolute,
@@ -129,7 +129,7 @@ fn setup_gen_velocities_ui(mut commands: Commands) {
         // Accepts a `String` or any type that converts into a `String`, such as `&str`
         Text::new("For gen velocities"),
         // Set the justification of the Text
-        TextLayout::new_with_justify(Justify::Center),
+        TextLayout::justify(Justify::Center),
         // Set the style of the Node itself.
         Node {
             position_type: PositionType::Absolute,
@@ -146,7 +146,7 @@ fn setup_just_chill_ui(mut commands: Commands) {
         // Accepts a `String` or any type that converts into a `String`, such as `&str`
         Text::new("For just_chill"),
         // Set the justification of the Text
-        TextLayout::new_with_justify(Justify::Center),
+        TextLayout::justify(Justify::Center),
         // Set the style of the Node itself.
         Node {
             position_type: PositionType::Absolute,
@@ -160,7 +160,7 @@ fn setup_just_chill_ui(mut commands: Commands) {
         // Accepts a `String` or any type that converts into a `String`, such as `&str`
         Text::new("Press space to begin the simulation"),
         // Set the justification of the Text
-        TextLayout::new_with_justify(Justify::Center),
+        TextLayout::justify(Justify::Center),
         // Set the style of the Node itself.
         Node {
             position_type: PositionType::Absolute,
@@ -177,7 +177,7 @@ fn setup_simulation_running_ui(mut commands: Commands) {
         // Accepts a `String` or any type that converts into a `String`, such as `&str`
         Text::new("The simulation is now running"),
         // Set the justification of the Text
-        TextLayout::new_with_justify(Justify::Center),
+        TextLayout::justify(Justify::Center),
         // Set the style of the Node itself.
         Node {
             position_type: PositionType::Absolute,

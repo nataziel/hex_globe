@@ -1,0 +1,8 @@
+[package]
+name = "hex_globe_halfedge"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+subsphere = "0.7"
+rand = "0.10"

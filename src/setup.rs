@@ -4,8 +4,6 @@ use bevy::prelude::*;
 use bevy::render::render_resource::PrimitiveTopology;
 use noiz::prelude::*;
 use rand::{RngExt, rngs::ThreadRng};
-use std::num::NonZero;
-use subsphere::prelude::*;
 
 pub const N_PLATES: usize = 40;
 
@@ -25,17 +23,22 @@ pub struct ChangeColour {
     pub colour: Color,
 }
 
+fn globe_config() -> hex_globe_halfedge::GlobeConfig {
+    hex_globe_halfedge::GlobeConfig::default()
+        .with_subdivisions(30)
+        .with_flip_seed(0x5eed_cafe)
+        .with_flip_rate(0.05)
+        .with_relaxation(hex_globe_halfedge::Relaxation::Lloyd {
+            iterations: 30,
+            strength: 0.8,
+        })
+}
 fn create_sphere(
     mut commands: Commands,
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<StandardMaterial>>,
 ) {
-    let sphere = subsphere::HexSphere::from_kis(
-        subsphere::icosphere()
-            .subdivide_edge(NonZero::new(60).unwrap())
-            .with_projector(subsphere::proj::Fuller),
-    )
-    .unwrap();
+    let dual = hex_globe_halfedge::build_globe(globe_config()).expect("valid globe configuration");
 
     let mut noise = Noise::from(LayeredNoise::new(
         NormedByDerivative::<f32, EuclideanLength, PeakDerivativeContribution>::default()
@@ -49,62 +52,82 @@ fn create_sphere(
         },
     ));
     noise.set_period(0.001);
-
-    let mut face_entities = Vec::new();
-
-    // First pass: create entities and store them
-    for _ in 0..sphere.num_faces() {
-        let entity_id = commands.spawn_empty().id();
-        face_entities.push(entity_id);
-    }
-
-    // Second pass: populate entities
-    for (i, face) in sphere.faces().enumerate() {
-        let centre_pos = get_centre_vec(face);
-
-        let positions = build_fan_triangulation(face);
-
-        let mut mesh = Mesh::new(
+    let face_entities: Vec<_> = (0..dual.faces().len())
+        .map(|_| commands.spawn_empty().id())
+        .collect();
+    // One outline material avoids exceeding renderer material-index limits at high subdivisions.
+    let outline_material = materials.add(StandardMaterial {
+        base_color: Color::BLACK,
+        ..default()
+    });
+    for (i, face) in dual.faces().iter().enumerate() {
+        let face_positions: Vec<Vec3> = face
+            .vertices
+            .iter()
+            .map(|&vertex| vec3(dual.vertices()[vertex.0].position))
+            .collect();
+        let positions = build_fan_triangulation(&face_positions);
+        let mut render_mesh = Mesh::new(
             PrimitiveTopology::TriangleList,
             RenderAssetUsages::default(),
         );
-        mesh.insert_attribute(Mesh::ATTRIBUTE_POSITION, positions);
-        mesh.compute_flat_normals();
-
-        let mut neighbours = Vec::new();
-        for side in face.sides() {
-            let neighbour_index = side.twin().inside().index();
-            neighbours.push(face_entities[neighbour_index]);
-        }
+        render_mesh.insert_attribute(Mesh::ATTRIBUTE_POSITION, positions);
+        render_mesh.compute_flat_normals();
+        let neighbours = face.neighbours.iter().map(|n| face_entities[n.0]).collect();
         commands.entity(face_entities[i]).insert((
-            Mesh3d(meshes.add(mesh)),
+            Mesh3d(meshes.add(render_mesh)),
             MeshMaterial3d(materials.add(StandardMaterial {
-                base_color: Color::srgb(1.0, 1.0, 1.0),
+                base_color: Color::WHITE,
                 ..default()
             })),
-            Face { centre_pos },
+            Face {
+                centre_pos: vec3(face.centre).normalize(),
+            },
             FaceNeighbours(neighbours),
-            Transform::from_xyz(0.0, 0.0, 0.0),
+            Transform::default(),
         ));
-
-        let outline_mesh = build_outline_mesh(face);
-
         commands.entity(face_entities[i]).with_children(|c| {
             c.spawn((
-                Mesh3d(meshes.add(outline_mesh)),
-                MeshMaterial3d(materials.add(StandardMaterial {
-                    base_color: Color::BLACK,
-                    // unlit: true,
-                    ..default()
-                })),
+                Mesh3d(
+                    meshes.add(build_outline_mesh(
+                        &face
+                            .vertices
+                            .iter()
+                            .map(|&vertex| vec3(dual.vertices()[vertex.0].position))
+                            .collect::<Vec<_>>(),
+                    )),
+                ),
+                MeshMaterial3d(outline_material.clone()),
             ));
         });
-
-        let height: f32 = noise.sample(centre_pos);
-        info!("height: {}", height);
+        let height: f32 = noise.sample(vec3(face.centre));
+        debug!(height, "dual face height");
     }
 }
 
+fn vec3(p: [f64; 3]) -> Vec3 {
+    Vec3::new(p[0] as f32, p[1] as f32, p[2] as f32)
+}
+
+fn build_fan_triangulation(vertices: &[Vec3]) -> Vec<[f32; 3]> {
+    let mut positions = Vec::with_capacity((vertices.len() - 2) * 3);
+    for pair in vertices[1..].windows(2) {
+        positions.extend([
+            vertices[0].to_array(),
+            pair[0].to_array(),
+            pair[1].to_array(),
+        ]);
+    }
+    positions
+}
+
+fn build_outline_mesh(vertices: &[Vec3]) -> Mesh {
+    let mut positions: Vec<_> = vertices.iter().map(|p| *p * 1.0001).collect();
+    positions.push(positions[0]);
+    let mut mesh = Mesh::new(PrimitiveTopology::LineStrip, RenderAssetUsages::default());
+    mesh.insert_attribute(Mesh::ATTRIBUTE_POSITION, positions);
+    mesh
+}
 // Create plates colour palette
 fn create_palette(mut commands: Commands) {
     let mut rng = rand::rng();
@@ -125,58 +148,13 @@ fn gen_colour_palette(n: usize, rng: &mut ThreadRng) -> Vec<Color> {
         .collect()
 }
 
-fn get_centre_vec(face: subsphere::hex::Face<subsphere::proj::Fuller>) -> Vec3 {
-    let centre_position_array = face.center().pos();
-    Vec3::new(
-        centre_position_array[0] as f32,
-        centre_position_array[1] as f32,
-        centre_position_array[2] as f32,
-    )
-}
-
-fn build_fan_triangulation(face: subsphere::hex::Face<subsphere::proj::Fuller>) -> Vec<[f32; 3]> {
-    let face_vertices: Vec<_> = face.vertices().map(|v| v.pos()).collect();
-
-    let mut positions = Vec::new();
-    let v0 = face_vertices[0];
-
-    for j in 1..(face_vertices.len() - 1) {
-        let v1 = face_vertices[j];
-        let v2 = face_vertices[j + 1];
-
-        positions.push([v0[0] as f32, v0[1] as f32, v0[2] as f32]);
-        positions.push([v1[0] as f32, v1[1] as f32, v1[2] as f32]);
-        positions.push([v2[0] as f32, v2[1] as f32, v2[2] as f32]);
-    }
-    positions
-}
-
-fn build_outline_mesh(face: subsphere::hex::Face<subsphere::proj::Fuller>) -> Mesh {
-    let mut face_vertices: Vec<Vec3> = face
-        .vertices()
-        .map(|v| {
-            let p = v.pos();
-            Vec3::new(p[0] as f32, p[1] as f32, p[2] as f32) * 1.0001 // tiny little offset so it sits just above the sphere
-        })
-        .collect();
-
-    // to wrap back to the first point
-    face_vertices.push(face_vertices[0]);
-
-    let mut mesh = Mesh::new(PrimitiveTopology::LineStrip, RenderAssetUsages::default());
-
-    mesh.insert_attribute(Mesh::ATTRIBUTE_POSITION, face_vertices);
-
-    mesh
-}
-
 fn change_face_color(
     mut commands: Commands,
     mut materials: ResMut<Assets<StandardMaterial>>,
     query: Query<(Entity, &MeshMaterial3d<StandardMaterial>, &ChangeColour), With<Face>>,
 ) {
     for (entity_id, material_handle, colour) in query.iter() {
-        if let Some(material) = materials.get_mut(material_handle) {
+        if let Some(mut material) = materials.get_mut(material_handle) {
             material.base_color = colour.colour;
         }
         commands.entity(entity_id).remove::<ChangeColour>();
@@ -189,5 +167,39 @@ impl Plugin for SetupPlugin {
     fn build(&self, app: &mut App) {
         app.add_systems(Startup, (create_sphere, create_palette))
             .add_systems(Update, change_face_color);
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    #[test]
+    fn fixed_seed_builds_a_deterministic_valence_bounded_dual() {
+        let first = hex_globe_halfedge::build_globe(globe_config()).unwrap();
+        let second = hex_globe_halfedge::build_globe(globe_config()).unwrap();
+        let signature = |dual: &hex_globe_halfedge::DualMesh| {
+            dual.faces()
+                .iter()
+                .map(|face| (face.vertices.clone(), face.neighbours.clone()))
+                .collect::<Vec<_>>()
+        };
+        assert_eq!(signature(&first), signature(&second));
+        assert!(
+            first
+                .faces()
+                .iter()
+                .all(|face| (5..=7).contains(&face.vertices.len())
+                    && face.vertices.len() == face.neighbours.len())
+        );
+        for (i, face) in first.faces().iter().enumerate() {
+            for neighbour in &face.neighbours {
+                assert!(
+                    first
+                        .face(*neighbour)
+                        .neighbours
+                        .contains(&hex_globe_halfedge::DualFaceId(i))
+                );
+            }
+        }
     }
 }
